@@ -55,16 +55,15 @@
 #include <math.h>
 #define _USE_MATH_DEFINES
 
-/* iostream and vector are standard libraries that are just generally useful.
- */
+/* Standard libraries that are just generally useful. */
 #include <iostream>
 #include <vector>
 
-/* libraries used for file parsing */
+/* Libraries used for file parsing */
 #include <fstream>
 #include <sstream>
 
-/* map library used to store objects by name */
+/* Map library used to store objects by name */
 #include <map>
 
 using namespace std;
@@ -895,10 +894,10 @@ void draw_objects()
                 * parameter is only a single float value instead of an array of
                 * values. 'glMaterialf' is used to set the shininess property.
                 */
-                glMaterialfv(GL_FRONT, GL_AMBIENT, instance.ambient_reflect);
-                glMaterialfv(GL_FRONT, GL_DIFFUSE, instance.diffuse_reflect);
-                glMaterialfv(GL_FRONT, GL_SPECULAR, instance.specular_reflect);
-                glMaterialf(GL_FRONT, GL_SHININESS, instance.shininess);
+                glMaterialfv(GL_FRONT, GL_AMBIENT, inst.ambient_reflect);
+                glMaterialfv(GL_FRONT, GL_DIFFUSE, inst.diffuse_reflect);
+                glMaterialfv(GL_FRONT, GL_SPECULAR, inst.specular_reflect);
+                glMaterialf(GL_FRONT, GL_SHININESS, inst.shininess);
 
             }
             
@@ -1229,11 +1228,11 @@ void key_pressed(unsigned char key, int x, int y)
 }
 
 
-void splitBySpace(std::string s, std::vector<std::string> &split)
+void splitBySpace(string s, vector<string> &split)
 {
-    std::stringstream stream(s);
+    stringstream stream(s);
 
-    std::string buffer;
+    string buffer;
     while(getline(stream, buffer, ' ')) {
         split.push_back(buffer);
     }
@@ -1262,11 +1261,11 @@ void parseObjFile(string filename, Object &obj)
         element.clear();
         splitBySpace(buffer, element);
         if (element[0] == "v") {
-            Triple vertex = {stod(element[1]), stod(element[2]), stod(element[3])};
+            Triple vertex = {stof(element[1]), stof(element[2]), stof(element[3])};
             vertexSet.push_back(vertex);
             continue;
         } else if (element[0] == "vn") {
-            Triple normal = {stod(element[1]), stod(element[2]), stod(element[3])};
+            Triple normal = {stof(element[1]), stof(element[2]), stof(element[3])};
             normalSet.push_back(normal);
             continue;
         }
@@ -1335,26 +1334,26 @@ void parseFormatFile(string filename)
         if (line.size() == 0) {
             break;
         } else if (line[0] == "position") {
-            cam_position[0] = stod(line[1]);
-            cam_position[1] = stod(line[2]);
-            cam_position[2] = stod(line[3]);
+            cam_position[0] = stof(line[1]);
+            cam_position[1] = stof(line[2]);
+            cam_position[2] = stof(line[3]);
         } else if (line[0] == "orientation") {
-            cam_orientation_axis[0] = stod(line[1]);
-            cam_orientation_axis[1] = stod(line[2]);
-            cam_orientation_axis[2] = stod(line[3]);
-            cam_orientation_angle = stod(line[4]);
+            cam_orientation_axis[0] = stof(line[1]);
+            cam_orientation_axis[1] = stof(line[2]);
+            cam_orientation_axis[2] = stof(line[3]);
+            cam_orientation_angle = stof(line[4]);
         } else if (line[0] == "near") {
-            near_param = stod(line[1]);
+            near_param = stof(line[1]);
         } else if (line[0] == "far") {
-            far_param = stod(line[1]);
+            far_param = stof(line[1]);
         } else if (line[0] == "left") {
-            left_param = stod(line[1]);
+            left_param = stof(line[1]);
         } else if (line[0] == "right") {
-            right_param = stod(line[1]);
+            right_param = stof(line[1]);
         } else if (line[0] == "top") {
-            top_param = stod(line[1]);
+            top_param = stof(line[1]);
         } else if (line[0] == "bottom") {
-            bottom_param = stod(line[1]);
+            bottom_param = stof(line[1]);
         }
     }
 
@@ -1369,15 +1368,15 @@ void parseFormatFile(string filename)
 
         Point_Light light;
 
-        light.position[0] = stod(line[1]);
-        light.position[1] = stod(line[2]);
-        light.position[2] = stod(line[3]);
+        light.position[0] = stof(line[1]);
+        light.position[1] = stof(line[2]);
+        light.position[2] = stof(line[3]);
 
-        light.color[0] = stod(line[5]);
-        light.color[1] = stod(line[6]);
-        light.color[2] = stod(line[7]);
+        light.color[0] = stof(line[5]);
+        light.color[1] = stof(line[6]);
+        light.color[2] = stof(line[7]);
 
-        light.attenuation_k = stod(line[9]);
+        light.attenuation_k = stof(line[9]);
         
         lights.push_back(light);
     }
@@ -1398,12 +1397,12 @@ void parseFormatFile(string filename)
         /* Reinitializes obj for each new object we need */
         Object obj;
         parseObjFile(directory + line[1], obj);
-        objects.insert({line[0], obj});
+        objects.insert(pair<string, Object>(line[0], obj));
     }
 
     /* Reads in all objects instances */
-    Object &currObj = NULL;
-    size_t instanceIndex;
+    Object *currObj;
+    int instanceIdx;
     while (getline(file, buffer)) {
         line.clear();
         splitBySpace(buffer, line);
@@ -1421,10 +1420,10 @@ void parseFormatFile(string filename)
          * for processing.
          */
         if (currObj == NULL) {
-            currObj = objects[line[0]];
-            instanceIndex = currObj.instances.size();
+            currObj = &objects[line[0]];
+            instanceIdx = currObj->instances.size();
             Instance inst;
-            currObj.instances.push_back(inst);
+            currObj->instances.push_back(inst);
             continue;
         }
 
@@ -1437,41 +1436,41 @@ void parseFormatFile(string filename)
 
         /* Processes the reflectance parameters for the transform set */
         if (line[0] == "ambient") {
-            currObj.instances[instanceIndex].ambient_reflect[0] = stod(line[1]);
-            currObj.instances[instanceIndex].ambient_reflect[1] = stod(line[2]);
-            currObj.instances[instanceIndex].ambient_reflect[2] = stod(line[3]);
+            currObj->instances[instanceIdx].ambient_reflect[0] = stof(line[1]);
+            currObj->instances[instanceIdx].ambient_reflect[1] = stof(line[2]);
+            currObj->instances[instanceIdx].ambient_reflect[2] = stof(line[3]);
             continue;
         } else if (line[0] == "diffuse") {
-            currObj.instances[instanceIndex].diffuse_reflect[0] = stod(line[1]);
-            currObj.instances[instanceIndex].diffuse_reflect[1] = stod(line[2]);
-            currObj.instances[instanceIndex].diffuse_reflect[2] = stod(line[3]);
+            currObj->instances[instanceIdx].diffuse_reflect[0] = stof(line[1]);
+            currObj->instances[instanceIdx].diffuse_reflect[1] = stof(line[2]);
+            currObj->instances[instanceIdx].diffuse_reflect[2] = stof(line[3]);
             continue;
         } else if (line[0] == "specular") {
-            currObj.instances[instanceIndex].specular_reflect[0] = stod(line[1]);
-            currObj.instances[instanceIndex].specular_reflect[1] = stod(line[2]);
-            currObj.instances[instanceIndex].specular_reflect[2] = stod(line[3]);
+            currObj->instances[instanceIdx].specular_reflect[0] = stof(line[1]);
+            currObj->instances[instanceIdx].specular_reflect[1] = stof(line[2]);
+            currObj->instances[instanceIdx].specular_reflect[2] = stof(line[3]);
             continue;
         } else if (line[0] == "shininess") {
-            currObj.instances[instanceIndex].shininess = stod(line[1]);
+            currObj->instances[instanceIdx].shininess = stof(line[1]);
             continue;
         }
 
         /* Processes one line of the file as a transform */
         Transform transformation;
-        transformation.data[0] = stod(line[1]);
-        transformation.data[1] = stod(line[2]);
-        transformation.data[2] = stod(line[3]);
+        transformation.data[0] = stof(line[1]);
+        transformation.data[1] = stof(line[2]);
+        transformation.data[2] = stof(line[3]);
         if (line[0][0] == 't') {
             transformation.type = translate;
         } else if (line[0][0] == 'r') {
             transformation.type = rotate;
-            transformation.data[3] = stod(line[4]); 
+            transformation.data[3] = stof(line[4]); 
         } else {
             transformation.type = scale;
         }
 
         /* Adds the transform to the object instance's list of tranforms */
-        currObj.instances[instanceIndex].transforms.push_back(transformation);
+        currObj->instances[instanceIdx].transforms.push_back(transformation);
     }
    
     file.close();
