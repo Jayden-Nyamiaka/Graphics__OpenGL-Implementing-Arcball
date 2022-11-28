@@ -78,7 +78,7 @@ using namespace std;
  * further below.
  */
 
-void init(void);
+void init(string filename);
 void reshape(int width, int height);
 void display(void);
 
@@ -155,20 +155,37 @@ struct Triple
  * operations for us when we have it apply the transformations. All we
  * need to do is supply the parameters.
  */
-struct Transforms
-{
-    /* For each array below,
+
+enum transformType { translate, rotate, scale };
+
+struct Transform {
+    /* Indicates type of transformation*/
+    transformType type;
+
+    /* For translation, rotation, and scaling:
      * Index 0 has the x-component
      * Index 1 has the y-component
      * Index 2 has the z-component
+     * 
+     * Index 3 has the angle for rotation only
      */
-    float translation[3];
-    float rotation[3];
-    float scaling[3];
+    float data[4];
+};
+
+struct Instance
+{
+        
+    /* Index 0 has the r-component
+     * Index 1 has the g-component
+     * Index 2 has the b-component
+     */
+    float ambient_reflect[3];
+    float diffuse_reflect[3];
+    float specular_reflect[3];
     
-    /* Angle in degrees.
-     */
-    float rotation_angle;
+    float shininess;
+
+    vector<Transform> transforms;
 };
 
 /* The following struct is used to represent objects.
@@ -213,22 +230,10 @@ struct Object
     vector<Triple> vertex_buffer;
     vector<Triple> normal_buffer;
     
-    vector<Transforms> transform_sets;
-    
-    /* Index 0 has the r-component
-     * Index 1 has the g-component
-     * Index 2 has the b-component
-     */
-    float ambient_reflect[3];
-    float diffuse_reflect[3];
-    float specular_reflect[3];
-    
-    float shininess;
+    vector<Instance> instances;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-string filename;
 
 /* The following are the typical camera specifications and parameters. In
  * general, it is a better idea to keep all this information in a camera
@@ -255,12 +260,12 @@ float near_param, far_param,
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* Self-explanatory lists of lights and objects.
+/* Self-explanatory lists of lights and map of objects.
  */
 
 /* All the lights in the scene */
 vector<Point_Light> lights;
-/* All the objects mapped by name */
+/* All the objects mapped by name (filename) */
 map<string, Object> objects;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -283,13 +288,13 @@ bool wireframe_mode = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* The following function prototypes are for helper functions that prse the given 
- * format file to extract all the scene data and make our vector of objects.
+/* The following function prototypes are for helper functions that parse the given 
+ * format file to extract all the scene data and populate our map of objects.
  *
  * Details of the function will be given in its implementation further below.
  */
 
-void parseFormatFile();
+void parseFormatFile(string filename);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -320,10 +325,10 @@ void parseFormatFile();
  * The most important task of the 'init' function is to set OpenGL to the
  * states that we want it to be in.
  */
-void init(void)
+void init(string filename)
 {
-    /* See Above */
-    parseFormatFile();
+    /* Extracts all information from format file entered in command line */
+    parseFormatFile(filename);
 
     /* The following line of code tells OpenGL to use "smooth shading" (aka
      * Gouraud shading) when rendering.
@@ -782,14 +787,13 @@ void set_lights()
 
 /* 'draw_objects' function:
  *
- * This function has OpenGL render our objects to the display screen. It
+ * This function has OpenGL render our objects to the display screen.
  */
 void draw_objects()
-{
-    int num_objects = objects.size();
-    
-    for(int i = 0; i < num_objects; ++i)
-    {
+{   
+    for (map<string, Object>::iterator obj_iter = objects.begin(); 
+                                    obj_iter != objects.end(); obj_iter++) {
+        Object &obj = objects[obj_iter->first];
         /* The current Modelview Matrix is actually stored at the top of a
          * stack in OpenGL. The following function, 'glPushMatrix', pushes
          * another copy of the current Modelview Matrix onto the top of the
@@ -812,7 +816,7 @@ void draw_objects()
         /* The following brace is not necessary, but it keeps things organized.
          */
         {
-            int num_transform_sets = objects[i].transform_sets.size();
+            int num_instances = obj.instances.size();
             
             /* The loop tells OpenGL to modify our modelview matrix with the
              * desired geometric transformations for this object. Remember
@@ -844,40 +848,59 @@ void draw_objects()
              * Keep all this in mind to come up with an appropriate way to store and apply
              * geometric transformations for each object in your scenes.
              */
-            for(int j = 0; j < num_transform_sets; ++j)
+            for (int instanceIdx = 0; instanceIdx < num_instances; 
+                        instanceIdx++)
             {
-                glTranslatef(objects[i].transform_sets[j].translation[0],
-                             objects[i].transform_sets[j].translation[1],
-                             objects[i].transform_sets[j].translation[2]);
-                glRotatef(objects[i].transform_sets[j].rotation_angle,
-                          objects[i].transform_sets[j].rotation[0],
-                          objects[i].transform_sets[j].rotation[1],
-                          objects[i].transform_sets[j].rotation[2]);
-                glScalef(objects[i].transform_sets[j].scaling[0],
-                         objects[i].transform_sets[j].scaling[1],
-                         objects[i].transform_sets[j].scaling[2]);
-            }
+                Instance &inst = obj.instances[instanceIdx];
+                int num_transforms = inst.transforms.size();
+
+                /* Applies the transformations in REVERSE order because OpenGL uses
+                 * post matrix multiplication. */
+                for (int transformIdx = num_transforms - 1; transformIdx >= 0; 
+                        transformIdx--)
+                {
+                    switch(inst.transforms[transformIdx].type) {
+                        case translate :
+                            glTranslatef(inst.transforms[transformIdx].data[0],
+                                    inst.transforms[transformIdx].data[1],
+                                    inst.transforms[transformIdx].data[2]);
+                            break;
+                        case rotate :
+                            glRotatef(inst.transforms[transformIdx].data[3],
+                                    inst.transforms[transformIdx].data[0],
+                                    inst.transforms[transformIdx].data[1],
+                                    inst.transforms[transformIdx].data[2]);
+                            break;
+                        case scale :
+                            glScalef(inst.transforms[transformIdx].data[0],
+                                    inst.transforms[transformIdx].data[1],
+                                    inst.transforms[transformIdx].data[2]);
+                    }
+                }
             
-            /* The 'glMaterialfv' and 'glMaterialf' functions tell OpenGL
-             * the material properties of the surface we want to render.
-             * The parameters for 'glMaterialfv' are (in the following order):
-             *
-             * - enum face: Options are 'GL_FRONT' for front-face rendering,
-             *              'GL_BACK' for back-face rendering, and
-             *              'GL_FRONT_AND_BACK' for rendering both sides.
-             * - enum property: this varies on what you are setting up
-             *                  e.g. 'GL_AMBIENT' for ambient reflectance
-             * - float* values: a set of values for the specified property
-             *                  e.g. an array of RGB values for the reflectance
-             *
-             * The 'glMaterialf' function is the same, except the third
-             * parameter is only a single float value instead of an array of
-             * values. 'glMaterialf' is used to set the shininess property.
-             */
-            glMaterialfv(GL_FRONT, GL_AMBIENT, objects[i].ambient_reflect);
-            glMaterialfv(GL_FRONT, GL_DIFFUSE, objects[i].diffuse_reflect);
-            glMaterialfv(GL_FRONT, GL_SPECULAR, objects[i].specular_reflect);
-            glMaterialf(GL_FRONT, GL_SHININESS, objects[i].shininess);
+            
+                /* The 'glMaterialfv' and 'glMaterialf' functions tell OpenGL
+                * the material properties of the surface we want to render.
+                * The parameters for 'glMaterialfv' are (in the following order):
+                *
+                * - enum face: Options are 'GL_FRONT' for front-face rendering,
+                *              'GL_BACK' for back-face rendering, and
+                *              'GL_FRONT_AND_BACK' for rendering both sides.
+                * - enum property: this varies on what you are setting up
+                *                  e.g. 'GL_AMBIENT' for ambient reflectance
+                * - float* values: a set of values for the specified property
+                *                  e.g. an array of RGB values for the reflectance
+                *
+                * The 'glMaterialf' function is the same, except the third
+                * parameter is only a single float value instead of an array of
+                * values. 'glMaterialf' is used to set the shininess property.
+                */
+                glMaterialfv(GL_FRONT, GL_AMBIENT, instance.ambient_reflect);
+                glMaterialfv(GL_FRONT, GL_DIFFUSE, instance.diffuse_reflect);
+                glMaterialfv(GL_FRONT, GL_SPECULAR, instance.specular_reflect);
+                glMaterialf(GL_FRONT, GL_SHININESS, instance.shininess);
+
+            }
             
             /* The next few lines of code are how we tell OpenGL to render
              * geometry for us. First, let us look at the 'glVertexPointer'
@@ -927,7 +950,7 @@ void draw_objects()
              * - void* pointer_to_array: this parameter is the pointer to
              *                           our vertex array.
              */
-            glVertexPointer(3, GL_FLOAT, 0, &objects[i].vertex_buffer[0]);
+            glVertexPointer(3, GL_FLOAT, 0, &obj.vertex_buffer[0]);
             /* The "normal array" is the equivalent array for normals.
              * Each normal in the normal array corresponds to the vertex
              * of the same index in the vertex array.
@@ -938,9 +961,9 @@ void draw_objects()
              * - sizei stride: same as the stride parameter in 'glVertexPointer'
              * - void* pointer_to_array: the pointer to the normal array
              */
-            glNormalPointer(GL_FLOAT, 0, &objects[i].normal_buffer[0]);
+            glNormalPointer(GL_FLOAT, 0, &obj.normal_buffer[0]);
             
-            int buffer_size = objects[i].vertex_buffer.size();
+            int buffer_size = obj.vertex_buffer.size();
             
             if(!wireframe_mode)
                 /* Finally, we tell OpenGL to render everything with the
@@ -1205,70 +1228,6 @@ void key_pressed(unsigned char key, int x, int y)
     }
 }
 
-/* 'create_lights' function:
- *
- * This function is relatively uninteresting. We are just hardcoding all the
- * properties of our point light objects. You do not need to do this because
- * the parser will already have all the point light objects initialized.
- */
-void create_lights()
-{
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Light 1 Below
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    
-    Point_Light light1;
-    
-    light1.position[0] = -0.8;
-    light1.position[1] = 0;
-    light1.position[2] = 1;
-    light1.position[3] = 1;
-    
-    light1.color[0] = 1;
-    light1.color[1] = 1;
-    light1.color[2] = 0;
-    light1.attenuation_k = 0.2;
-    
-    lights.push_back(light1);
-    
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Light 2 Below
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    
-    Point_Light light2;
-    
-    light2.position[0] = 0.15;
-    light2.position[1] = 0.85;
-    light2.position[2] = 0.7;
-    light2.position[3] = 1;
-    
-    light2.color[0] = 1;
-    light2.color[1] = 0;
-    light2.color[2] = 1;
-    
-    light2.attenuation_k = 0.1;
-    
-    lights.push_back(light2);
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Light 3 Below
-    ///////////////////////////////////////////////////////////////////////////////////////////////    
-    
-    Point_Light light3;
-    
-    light3.position[0] = 0.5;
-    light3.position[1] = -0.5;
-    light3.position[2] = 0.85;
-    light3.position[3] = 1;
-    
-    light3.color[0] = 0;
-    light3.color[1] = 1;
-    light3.color[2] = 1;
-    
-    light3.attenuation_k = 0;
-    
-    lights.push_back(light3);
-}
 
 void splitBySpace(std::string s, std::vector<std::string> &split)
 {
@@ -1279,6 +1238,7 @@ void splitBySpace(std::string s, std::vector<std::string> &split)
         split.push_back(buffer);
     }
 }
+
 
 void parseObjFile(string filename, Object &obj)
 {
@@ -1341,25 +1301,14 @@ void parseObjFile(string filename, Object &obj)
     file.close();
 }
 
-/* 'cHANGEEEEEEEEEEEEEEE
-
-
-
-
-
-
- * We hardcode all the properties of our cubes in this function. The only
- * relatively interesting part of this function is seeing how we form our
- * vertex and normal arrays. You will be able to form your vertex and normal
- * arrays more elegantly than this because the parser will have all the vertices,
- * normals, and facesets all stored in nice vectors. You will also not have to
- * hardcode any reflectances, transformations, etc, since the parser will also
- * have those all initialized for you.
- *
- * We are rendering our cubes with triangles, so each cube has 12 (triangle) faces
- * in all.
- */
-void parseFormatFile(void)
+/** 
+ * Populates all global fields not already filled with information extracted 
+ * by parsing the format file that was entered in the command line.
+ * 
+ * @param filename, the filename entered in the command line
+ * @throws invalid_argument if it fails to read the file
+ */ 
+void parseFormatFile(string filename)
 {
     if (filename.find(".txt") == -1) {
         throw invalid_argument("File " + filename + " needs to be a .txt file.");
@@ -1446,175 +1395,86 @@ void parseFormatFile(void)
             continue;
         }
 
+        /* Reinitializes obj for each new object we need */
         Object obj;
         parseObjFile(directory + line[1], obj);
         objects.insert({line[0], obj});
     }
 
-    /* Reads in all objects to transform as copies along with other params */
-    string objectName = "";
-    color_rgb_t ambient;
-    color_rgb_t diffuse;
-    color_rgb_t specular;
-    float shininess;
-    Matrix4f vertexTransformation;
-    Matrix4f surfNormTransformation;
-    bool first_run = true;
+    /* Reads in all objects instances */
+    Object &currObj = NULL;
+    size_t instanceIndex;
     while (getline(file, buffer)) {
         line.clear();
         splitBySpace(buffer, line);
 
-        if (objectName.empty()) {
-            objectName = line[0];
+        /* If the current object is empty, we are ready to read in a instance.
+
+         * In our scene, each object (in objects map) only acts as a template
+         * and uses instances to describe specific modifications of itself
+         * that actually get rendered to the screen.
+         * 
+         * In the format file, the start of an instance is indicated via:
+         *      [object name] [object filename]
+         * We use [object name] to grab the object from the object map.
+         * We make a instance and set a new instanceIndex to prepare 
+         * for processing.
+         */
+        if (currObj == NULL) {
+            currObj = objects[line[0]];
+            instanceIndex = currObj.instances.size();
+            Instance inst;
+            currObj.instances.push_back(inst);
             continue;
         }
 
+        /* Reset the current object to empty if we've reached the end of a 
+         * instance description. */
         if (line.size() == 0) {
-            saveTransformedCopy(objectName, ambient, diffuse, specular, 
-                shininess, vertexTransformation, surfNormTransformation);
-            objectName = "";
-            first_run = true;
+            currObj = NULL;
             continue;
         }
 
+        /* Processes the reflectance parameters for the transform set */
         if (line[0] == "ambient") {
-            ambient = initColor(stod(line[1]), stod(line[2]), stod(line[3]));
+            currObj.instances[instanceIndex].ambient_reflect[0] = stod(line[1]);
+            currObj.instances[instanceIndex].ambient_reflect[1] = stod(line[2]);
+            currObj.instances[instanceIndex].ambient_reflect[2] = stod(line[3]);
             continue;
         } else if (line[0] == "diffuse") {
-            diffuse = initColor(stod(line[1]), stod(line[2]), stod(line[3]));
+            currObj.instances[instanceIndex].diffuse_reflect[0] = stod(line[1]);
+            currObj.instances[instanceIndex].diffuse_reflect[1] = stod(line[2]);
+            currObj.instances[instanceIndex].diffuse_reflect[2] = stod(line[3]);
             continue;
         } else if (line[0] == "specular") {
-            specular = initColor(stod(line[1]), stod(line[2]), stod(line[3]));
+            currObj.instances[instanceIndex].specular_reflect[0] = stod(line[1]);
+            currObj.instances[instanceIndex].specular_reflect[1] = stod(line[2]);
+            currObj.instances[instanceIndex].specular_reflect[2] = stod(line[3]);
             continue;
         } else if (line[0] == "shininess") {
-            shininess = stod(line[1]);
+            currObj.instances[instanceIndex].shininess = stod(line[1]);
             continue;
         }
 
-        /* Processes one line of the file as a transformation matrix */
-        Matrix4f curr;
+        /* Processes one line of the file as a transform */
+        Transform transformation;
+        transformation.data[0] = stod(line[1]);
+        transformation.data[1] = stod(line[2]);
+        transformation.data[2] = stod(line[3]);
         if (line[0][0] == 't') {
-            curr = translation(stod(line[1]), stod(line[2]), stod(line[3]));
+            transformation.type = translate;
         } else if (line[0][0] == 'r') {
-            curr = rotation(stod(line[1]), stod(line[2]), stod(line[3]), 
-                                                        stod(line[4]));;
+            transformation.type = rotate;
+            transformation.data[3] = stod(line[4]); 
         } else {
-            curr = scaling(stod(line[1]), stod(line[2]), stod(line[3]));
+            transformation.type = scale;
         }
 
-        if (first_run) {
-            if (line[0][0] == 't') {
-                surfNormTransformation = getIdentity4d();
-            } else {
-                surfNormTransformation = curr;
-            }
-            vertexTransformation = curr;
-            first_run = false;
-            continue;
-        }
-
-        if (line[0][0] != 't') {
-            surfNormTransformation = curr * surfNormTransformation;
-        }
-        vertexTransformation = curr * vertexTransformation;
+        /* Adds the transform to the object instance's list of tranforms */
+        currObj.instances[instanceIndex].transforms.push_back(transformation);
     }
    
     file.close();
-
-
-
-    Object cube1;
-    
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Reflectances
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    
-    cube1.ambient_reflect[0] = 0.2;
-    cube1.ambient_reflect[1] = 0.2;
-    cube1.ambient_reflect[2] = 0.2;
-    
-    cube1.diffuse_reflect[0] = 0.6;
-    cube1.diffuse_reflect[1] = 0.6;
-    cube1.diffuse_reflect[2] = 0.6;
-    
-    cube1.specular_reflect[0] = 1;
-    cube1.specular_reflect[1] = 1;
-    cube1.specular_reflect[2] = 1;
-    
-    cube1.shininess = 5.0;
-    
-   
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Cube 2
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    
-    /* We are just going to make them identical out of laziness... */
-    Object cube2 = cube1;
-    
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Transformations for Cube 1
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    
-    Transforms transforms1;
-    
-    transforms1.translation[0] = -0.6;
-    transforms1.translation[1] = 0;
-    transforms1.translation[2] = 0;
-    
-    transforms1.rotation[0] = 1;
-    transforms1.rotation[1] = 1;
-    transforms1.rotation[2] = 0;
-    transforms1.rotation_angle = 60;
-    
-    transforms1.scaling[0] = 0.5;
-    transforms1.scaling[1] = 0.5;
-    transforms1.scaling[2] = 0.5;
-    
-    cube1.transform_sets.push_back(transforms1);
-    
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Transformations for Cube 2
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    
-    Transforms transforms2;
-    
-    transforms2.translation[0] = 2.0;
-    transforms2.translation[1] = 0;
-    transforms2.translation[2] = 0;
-    
-    transforms2.rotation[0] = 0;
-    transforms2.rotation[1] = 1;
-    transforms2.rotation[2] = 0;
-    transforms2.rotation_angle = 135;
-    
-    transforms2.scaling[0] = 1.5;
-    transforms2.scaling[1] = 1.5;
-    transforms2.scaling[2] = 1.5;
-    
-    Transforms transforms3;
-    
-    transforms3.translation[0] = 0;
-    transforms3.translation[1] = 0;
-    transforms3.translation[2] = 0;
-    
-    transforms3.rotation[0] = 1;
-    transforms3.rotation[1] = 0;
-    transforms3.rotation[2] = 0;
-    transforms3.rotation_angle = -45;
-    
-    transforms3.scaling[0] = 0.5;
-    transforms3.scaling[1] = 0.5;
-    transforms3.scaling[2] = 0.5;
-    
-    cube2.transform_sets.push_back(transforms2);
-    cube2.transform_sets.push_back(transforms3);
-    
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Push to Objects
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    
-    objects.push_back(cube1);
-    objects.push_back(cube2);
 }
 
 
@@ -1631,17 +1491,17 @@ void usage(void) {
  */
 int main(int argc, char* argv[])
 {
+    /* Checks that the user inputted the right parameters into the command line
+     * and stores xres, yres, and filename to their respective fields
+     */
     if (argc != 4) {
         usage();
     }
-
     int xres = stoi(argv[2]);
     int yres = stoi(argv[3]);
     if (xres <= 0 || yres <= 0) {
         usage();
     }
-
-    filename = argv[1];
     
     /* 'glutInit' intializes the GLUT (Graphics Library Utility Toolkit) library.
      * This is necessary, since a lot of the functions we used above and below
@@ -1670,7 +1530,7 @@ int main(int argc, char* argv[])
     
     /* Call our 'init' function...
      */
-    init();
+    init(argv[1]);
     /* Specify to OpenGL our display function.
      */
     glutDisplayFunc(display);
