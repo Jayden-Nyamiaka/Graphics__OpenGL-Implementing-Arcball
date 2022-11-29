@@ -1255,6 +1255,9 @@ void parseObjFile(string filename, Object &obj)
 
     vector<Triple> vertexSet;
     vector<Triple> normalSet;
+    Triple zeroPlaceHolder = {0.0f, 0.0f, 0.0f};
+    vertexSet.push_back(zeroPlaceHolder);
+    normalSet.push_back(zeroPlaceHolder);
 
     vector<string> element;
     while (getline(file, buffer)) {
@@ -1270,29 +1273,39 @@ void parseObjFile(string filename, Object &obj)
             continue;
         }
 
+        /* If not a vertex or a normal, treats it as a face */
         string element_str;
 
+        /* Vertex of First Face */
         element_str = element[1];
         element[1].erase(element[1].find("//"));
         Triple v1 = vertexSet[stoi(element[1])];
+        /* Normal of First Face */
         element_str.erase(0, element_str.find("//") + 2);
         Triple sn1 = normalSet[stoi(element_str)];
+        /* Adds First Face Vertex and Normal to their Buffers */
         obj.vertex_buffer.push_back(v1);
         obj.normal_buffer.push_back(sn1);
 
+        /* Vertex of Second Face */
         element_str = element[2];
         element[2].erase(element[2].find("//"));
         Triple v2 = vertexSet[stoi(element[2])];
+        /* Normal of Second Face */
         element_str.erase(0, element_str.find("//") + 2);
         Triple sn2 = normalSet[stoi(element_str)];
+        /* Adds Second Face Vertex and Normal to their Buffers */
         obj.vertex_buffer.push_back(v2);
         obj.normal_buffer.push_back(sn2);
 
+        /* Vertex of Third Face */
         element_str = element[3];
         element[3].erase(element[3].find("//"));
         Triple v3 = vertexSet[stoi(element[3])];
+        /* Normal of Third Face */
         element_str.erase(0, element_str.find("//") + 2);
         Triple sn3 = normalSet[stoi(element_str)];
+        /* Adds Third Face Vertex and Normal to their Buffers */
         obj.vertex_buffer.push_back(v3);
         obj.normal_buffer.push_back(sn3);
     }
@@ -1401,7 +1414,7 @@ void parseFormatFile(string filename)
     }
 
     /* Reads in all objects instances */
-    Object *currObj;
+    Object *currObj = NULL;
     int instanceIdx;
     while (getline(file, buffer)) {
         line.clear();
@@ -1501,7 +1514,7 @@ int main(int argc, char* argv[])
     if (xres <= 0 || yres <= 0) {
         usage();
     }
-    
+
     /* 'glutInit' intializes the GLUT (Graphics Library Utility Toolkit) library.
      * This is necessary, since a lot of the functions we used above and below
      * are from the GLUT library.
