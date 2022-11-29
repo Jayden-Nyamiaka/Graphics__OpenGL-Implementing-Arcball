@@ -1384,7 +1384,7 @@ void parseFormatFile(string filename)
         light.position[0] = stof(line[1]);
         light.position[1] = stof(line[2]);
         light.position[2] = stof(line[3]);
-        light.position[4] = 1;
+        light.position[3] = 1;
 
         light.color[0] = stof(line[5]);
         light.color[1] = stof(line[6]);
