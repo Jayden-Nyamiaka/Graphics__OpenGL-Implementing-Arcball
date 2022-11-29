@@ -854,22 +854,24 @@ void draw_objects()
 
                 /* Applies the transformations in REVERSE order because OpenGL uses
                  * post matrix multiplication. */
-                for (int transformIdx = num_transforms - 1; transformIdx >= 0; 
-                        transformIdx--)
+                for (int transformIdx = num_transforms - 1; transformIdx >= 0; --transformIdx)
                 {
                     switch(inst.transforms[transformIdx].type) {
                         case translate :
+                            cerr << transformIdx << " translate" << endl;
                             glTranslatef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
                         case rotate :
+                            cerr << transformIdx << " rotate" << endl;
                             glRotatef(inst.transforms[transformIdx].data[3],
                                     inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
                         case scale :
+                            cerr << transformIdx << " scale" << endl;
                             glScalef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
@@ -893,9 +895,23 @@ void draw_objects()
                 * values. 'glMaterialf' is used to set the shininess property.
                 */
                 glMaterialfv(GL_FRONT, GL_AMBIENT, inst.ambient_reflect);
+                cerr << "Ambient: " << inst.ambient_reflect[0] << " " 
+                    << inst.ambient_reflect[1] << " " << inst.ambient_reflect[2] << endl;
+
+
                 glMaterialfv(GL_FRONT, GL_DIFFUSE, inst.diffuse_reflect);
+                cerr << "Diffuse: " << inst.diffuse_reflect[0] << " " 
+                    << inst.diffuse_reflect[1] << " " << inst.diffuse_reflect[2] << endl;
+
+
                 glMaterialfv(GL_FRONT, GL_SPECULAR, inst.specular_reflect);
+                cerr << "Specular: " << inst.specular_reflect[0] << " " 
+                    << inst.specular_reflect[1] << " " << inst.specular_reflect[2] << endl;
+                
+                
                 glMaterialf(GL_FRONT, GL_SHININESS, inst.shininess);
+                cerr << "Shininess: " << inst.shininess << endl;
+
 
                 /* The next few lines of code are how we tell OpenGL to render
                 * geometry for us. First, let us look at the 'glVertexPointer'
