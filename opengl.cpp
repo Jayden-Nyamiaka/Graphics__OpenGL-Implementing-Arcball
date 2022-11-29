@@ -847,8 +847,7 @@ void draw_objects()
              * Keep all this in mind to come up with an appropriate way to store and apply
              * geometric transformations for each object in your scenes.
              */
-            for (int instanceIdx = 0; instanceIdx < num_instances; 
-                        instanceIdx++)
+            for (int instanceIdx = 0; instanceIdx < num_instances; ++instanceIdx)
             {
                 Instance &inst = obj.instances[instanceIdx];
                 int num_transforms = inst.transforms.size();
@@ -877,7 +876,6 @@ void draw_objects()
                     }
                 }
             
-            
                 /* The 'glMaterialfv' and 'glMaterialf' functions tell OpenGL
                 * the material properties of the surface we want to render.
                 * The parameters for 'glMaterialfv' are (in the following order):
@@ -899,103 +897,102 @@ void draw_objects()
                 glMaterialfv(GL_FRONT, GL_SPECULAR, inst.specular_reflect);
                 glMaterialf(GL_FRONT, GL_SHININESS, inst.shininess);
 
+                /* The next few lines of code are how we tell OpenGL to render
+                * geometry for us. First, let us look at the 'glVertexPointer'
+                * function.
+                * 
+                * 'glVertexPointer' tells OpenGL the specifications for our
+                * "vertex array". As a recap of the comments from the 'Object'
+                * struct, the "vertex array" stores all the faces of the surface
+                * we want to render. The faces are stored in the array as
+                * consecutive points. For instance, if our surface were a cube,
+                * then our "vertex array" could be the following:
+                *
+                * [face1vertex1, face1vertex2, face1vertex3, face1vertex4,
+                *  face2vertex1, face2vertex2, face2vertex3, face2vertex4,
+                *  face3vertex1, face3vertex2, face3vertex3, face3vertex4,
+                *  face4vertex1, face4vertex2, face4vertex3, face4vertex4,
+                *  face5vertex1, face5vertex2, face5vertex3, face5vertex4,
+                *  face6vertex1, face6vertex2, face6vertex3, face6vertex4]
+                * 
+                * Obviously to us, some of the vertices in the array are repeats.
+                * However, the repeats cannot be avoided since OpenGL requires
+                * this explicit specification of the faces.
+                *
+                * The parameters to the 'glVertexPointer' function are as
+                * follows:
+                *
+                * - int num_points_per_face: this is the parameter that tells
+                *                            OpenGL where the breaks between
+                *                            faces are in the vertex array.
+                *                            Below, we set this parameter to 3,
+                *                            which tells OpenGL to treat every
+                *                            set of 3 consecutive vertices in
+                *                            the vertex array as 1 face. So
+                *                            here, our vertex array is an array
+                *                            of triangle faces.
+                *                            If we were using the example vertex
+                *                            array above, we would have set this
+                *                            parameter to 4 instead of 3.
+                * - enum type_of_coordinates: this parameter tells OpenGL whether
+                *                             our vertex coordinates are ints,
+                *                             floats, doubles, etc. In our case,
+                *                             we are using floats, hence 'GL_FLOAT'.
+                * - sizei stride: this parameter specifies the number of bytes
+                *                 between consecutive vertices in the array.
+                *                 Most often, you will set this parameter to 0
+                *                 (i.e. no offset between consecutive vertices).
+                * - void* pointer_to_array: this parameter is the pointer to
+                *                           our vertex array.
+                */
+                glVertexPointer(3, GL_FLOAT, 0, &obj.vertex_buffer[0]);
+                /* The "normal array" is the equivalent array for normals.
+                * Each normal in the normal array corresponds to the vertex
+                * of the same index in the vertex array.
+                *
+                * The 'glNormalPointer' function has the following parameters:
+                *
+                * - enum type_of_normals: e.g. int, float, double, etc
+                * - sizei stride: same as the stride parameter in 'glVertexPointer'
+                * - void* pointer_to_array: the pointer to the normal array
+                */
+                glNormalPointer(GL_FLOAT, 0, &obj.normal_buffer[0]);
+                
+                int buffer_size = obj.vertex_buffer.size();
+                
+                if(!wireframe_mode)
+                    /* Finally, we tell OpenGL to render everything with the
+                    * 'glDrawArrays' function. The parameters are:
+                    * 
+                    * - enum mode: in our case, we want to render triangles,
+                    *              so we specify 'GL_TRIANGLES'. If we wanted
+                    *              to render squares, then we would use
+                    *              'GL_QUADS' (for quadrilaterals).
+                    * - int start_index: the index of the first vertex
+                    *                    we want to render in our array
+                    * - int num_vertices: number of vertices to render
+                    *
+                    * As OpenGL renders all the faces, it automatically takes
+                    * into account all the specifications we have given it to
+                    * do all the lighting calculations for us. It also applies
+                    * the Modelview and Projection matrix transformations to
+                    * the vertices and converts everything to screen coordinates
+                    * using our Viewport specification. Everything is rendered
+                    * onto the off-screen buffer.
+                    */
+                    glDrawArrays(GL_TRIANGLES, 0, buffer_size);
+                else
+                    /* If we are in "wireframe mode" (see the 'key_pressed'
+                    * function for more information), then we want to render
+                    * lines instead of triangle surfaces. To render lines,
+                    * we use the 'GL_LINE_LOOP' enum for the mode parameter.
+                    * However, we need to draw each face frame one at a time
+                    * to render the wireframe correctly. We can do so with a
+                    * for loop:
+                    */
+                    for(int j = 0; j < buffer_size; j += 3)
+                        glDrawArrays(GL_LINE_LOOP, j, 3);
             }
-            
-            /* The next few lines of code are how we tell OpenGL to render
-             * geometry for us. First, let us look at the 'glVertexPointer'
-             * function.
-             * 
-             * 'glVertexPointer' tells OpenGL the specifications for our
-             * "vertex array". As a recap of the comments from the 'Object'
-             * struct, the "vertex array" stores all the faces of the surface
-             * we want to render. The faces are stored in the array as
-             * consecutive points. For instance, if our surface were a cube,
-             * then our "vertex array" could be the following:
-             *
-             * [face1vertex1, face1vertex2, face1vertex3, face1vertex4,
-             *  face2vertex1, face2vertex2, face2vertex3, face2vertex4,
-             *  face3vertex1, face3vertex2, face3vertex3, face3vertex4,
-             *  face4vertex1, face4vertex2, face4vertex3, face4vertex4,
-             *  face5vertex1, face5vertex2, face5vertex3, face5vertex4,
-             *  face6vertex1, face6vertex2, face6vertex3, face6vertex4]
-             * 
-             * Obviously to us, some of the vertices in the array are repeats.
-             * However, the repeats cannot be avoided since OpenGL requires
-             * this explicit specification of the faces.
-             *
-             * The parameters to the 'glVertexPointer' function are as
-             * follows:
-             *
-             * - int num_points_per_face: this is the parameter that tells
-             *                            OpenGL where the breaks between
-             *                            faces are in the vertex array.
-             *                            Below, we set this parameter to 3,
-             *                            which tells OpenGL to treat every
-             *                            set of 3 consecutive vertices in
-             *                            the vertex array as 1 face. So
-             *                            here, our vertex array is an array
-             *                            of triangle faces.
-             *                            If we were using the example vertex
-             *                            array above, we would have set this
-             *                            parameter to 4 instead of 3.
-             * - enum type_of_coordinates: this parameter tells OpenGL whether
-             *                             our vertex coordinates are ints,
-             *                             floats, doubles, etc. In our case,
-             *                             we are using floats, hence 'GL_FLOAT'.
-             * - sizei stride: this parameter specifies the number of bytes
-             *                 between consecutive vertices in the array.
-             *                 Most often, you will set this parameter to 0
-             *                 (i.e. no offset between consecutive vertices).
-             * - void* pointer_to_array: this parameter is the pointer to
-             *                           our vertex array.
-             */
-            glVertexPointer(3, GL_FLOAT, 0, &obj.vertex_buffer[0]);
-            /* The "normal array" is the equivalent array for normals.
-             * Each normal in the normal array corresponds to the vertex
-             * of the same index in the vertex array.
-             *
-             * The 'glNormalPointer' function has the following parameters:
-             *
-             * - enum type_of_normals: e.g. int, float, double, etc
-             * - sizei stride: same as the stride parameter in 'glVertexPointer'
-             * - void* pointer_to_array: the pointer to the normal array
-             */
-            glNormalPointer(GL_FLOAT, 0, &obj.normal_buffer[0]);
-            
-            int buffer_size = obj.vertex_buffer.size();
-            
-            if(!wireframe_mode)
-                /* Finally, we tell OpenGL to render everything with the
-                 * 'glDrawArrays' function. The parameters are:
-                 * 
-                 * - enum mode: in our case, we want to render triangles,
-                 *              so we specify 'GL_TRIANGLES'. If we wanted
-                 *              to render squares, then we would use
-                 *              'GL_QUADS' (for quadrilaterals).
-                 * - int start_index: the index of the first vertex
-                 *                    we want to render in our array
-                 * - int num_vertices: number of vertices to render
-                 *
-                 * As OpenGL renders all the faces, it automatically takes
-                 * into account all the specifications we have given it to
-                 * do all the lighting calculations for us. It also applies
-                 * the Modelview and Projection matrix transformations to
-                 * the vertices and converts everything to screen coordinates
-                 * using our Viewport specification. Everything is rendered
-                 * onto the off-screen buffer.
-                 */
-                glDrawArrays(GL_TRIANGLES, 0, buffer_size);
-            else
-                /* If we are in "wireframe mode" (see the 'key_pressed'
-                 * function for more information), then we want to render
-                 * lines instead of triangle surfaces. To render lines,
-                 * we use the 'GL_LINE_LOOP' enum for the mode parameter.
-                 * However, we need to draw each face frame one at a time
-                 * to render the wireframe correctly. We can do so with a
-                 * for loop:
-                 */
-                for(int j = 0; j < buffer_size; j += 3)
-                    glDrawArrays(GL_LINE_LOOP, j, 3);
         }
         /* As discussed before, we use 'glPopMatrix' to get back the
          * version of the Modelview Matrix that we had before we specified
