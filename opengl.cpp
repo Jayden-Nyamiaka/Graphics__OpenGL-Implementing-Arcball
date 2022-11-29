@@ -1370,7 +1370,7 @@ void parseFormatFile(string filename)
         }
     }
 
-    /* Reads in camera and perspective parameters */
+    /* Reads in all point light sources */
     while (getline(file, buffer)) {
         line.clear();
         splitBySpace(buffer, line);
@@ -1384,6 +1384,7 @@ void parseFormatFile(string filename)
         light.position[0] = stof(line[1]);
         light.position[1] = stof(line[2]);
         light.position[2] = stof(line[3]);
+        light.position[4] = 1;
 
         light.color[0] = stof(line[5]);
         light.color[1] = stof(line[6]);
@@ -1394,7 +1395,7 @@ void parseFormatFile(string filename)
         lights.push_back(light);
     }
 
-    /* Reads in all objects storing them in object maps */
+    /* Reads in all objects storing them in the objects map */
     while (getline(file, buffer)) {
         line.clear();
         splitBySpace(buffer, line);
