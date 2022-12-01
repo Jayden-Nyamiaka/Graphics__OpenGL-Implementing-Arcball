@@ -858,20 +858,17 @@ void draw_objects()
                 {
                     switch(inst.transforms[transformIdx].type) {
                         case translate :
-                            cerr << transformIdx << " translate" << endl;
                             glTranslatef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
                         case rotate :
-                            cerr << transformIdx << " rotate" << endl;
                             glRotatef(inst.transforms[transformIdx].data[3],
                                     inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
                         case scale :
-                            cerr << transformIdx << " scale" << endl;
                             glScalef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
@@ -895,24 +892,10 @@ void draw_objects()
                 * values. 'glMaterialf' is used to set the shininess property.
                 */
                 glMaterialfv(GL_FRONT, GL_AMBIENT, inst.ambient_reflect);
-                cerr << "Ambient: " << inst.ambient_reflect[0] << " " 
-                    << inst.ambient_reflect[1] << " " << inst.ambient_reflect[2] << endl;
-
-
                 glMaterialfv(GL_FRONT, GL_DIFFUSE, inst.diffuse_reflect);
-                cerr << "Diffuse: " << inst.diffuse_reflect[0] << " " 
-                    << inst.diffuse_reflect[1] << " " << inst.diffuse_reflect[2] << endl;
-
-
                 glMaterialfv(GL_FRONT, GL_SPECULAR, inst.specular_reflect);
-                cerr << "Specular: " << inst.specular_reflect[0] << " " 
-                    << inst.specular_reflect[1] << " " << inst.specular_reflect[2] << endl;
-                
-                
                 glMaterialf(GL_FRONT, GL_SHININESS, inst.shininess);
-                cerr << "Shininess: " << inst.shininess << endl;
-
-
+            
                 /* The next few lines of code are how we tell OpenGL to render
                 * geometry for us. First, let us look at the 'glVertexPointer'
                 * function.
@@ -1155,6 +1138,15 @@ float deg2rad(float angle)
     return angle * M_PI / 180.0;
 }
 
+/* 'rad2deg' function:
+ * 
+ * Converts given angle in radians to degrees.
+ */
+float rad2deg(float angle)
+{
+    return angle * 180.0 / M_PI;
+}
+
 /* 'key_pressed' function:
  * 
  * This function is meant to respond to key pressed on the keyboard. The
@@ -1367,7 +1359,7 @@ void parseFormatFile(string filename)
             cam_orientation_axis[0] = stof(line[1]);
             cam_orientation_axis[1] = stof(line[2]);
             cam_orientation_axis[2] = stof(line[3]);
-            cam_orientation_angle = stof(line[4]);
+            cam_orientation_angle = rad2deg(stof(line[4]));
         } else if (line[0] == "near") {
             near_param = stof(line[1]);
         } else if (line[0] == "far") {
@@ -1491,7 +1483,7 @@ void parseFormatFile(string filename)
             transformation.type = translate;
         } else if (line[0][0] == 'r') {
             transformation.type = rotate;
-            transformation.data[3] = stof(line[4]); 
+            transformation.data[3] = rad2deg(stof(line[4])); 
         } else {
             transformation.type = scale;
         }
