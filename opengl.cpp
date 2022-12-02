@@ -568,7 +568,7 @@ void computeRotationQuarternion(Quarternion &q, int x, int y) {
     Vector3f start (x_start, y_start, z_start);
     Vector3f curr (x_curr, y_curr, z_curr);
     float thetaHalf = start.dot(curr) / (start.norm() * curr.norm());
-    thetaHalf = 0.5 * arccos(min(1.0f, theta));
+    thetaHalf = 0.5 * acos(min(1.0f, thetaHalf));
     Vector3f u = start.cross(curr);
     q.real = cos(thetaHalf);
     q.im.x = u[0] * sin(thetaHalf);
