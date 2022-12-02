@@ -66,6 +66,11 @@
 /* Map library used to store objects by name */
 #include <map>
 
+/* Eigen Library included for ArcBall */
+#include <Eigen/Dense>
+using Eigen::Matrix4f;
+Using Eigen::Vector4f;
+
 using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -187,6 +192,19 @@ struct Instance
     vector<Transform> transforms;
 };
 
+struct Quarternion
+{
+    float real;
+    Triple im;
+};
+
+Quartenion getIdentityQuarternion() {
+    Quartenion q;
+    q.real = 1;
+    q.im = (Triple) {0.0f, 0.0f, 0.0f};
+    return q;
+}
+
 /* The following struct is used to represent objects.
  *
  * The main things to note here are the 'vertex_buffer' and 'normal_buffer'
@@ -269,6 +287,13 @@ map<string, Object> objects;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/* Quarternions that control ArcBall Rotations
+ */
+Quarternion last_rotation;
+Quarternion curr_rotation;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 /* The following are parameters for creating an interactive first-person camera
  * view of the scene. The variables will make more sense when explained in
  * context, so you should just look at the 'mousePressed', 'mouseMoved', and
@@ -328,6 +353,10 @@ void init(string filename)
 {
     /* Extracts all information from format file entered in command line */
     parseFormatFile(filename);
+
+    /* Rotation Quarternion Initializations */
+    last_rotation = getIdentityQuarternion();
+    curr_rotation = getIdentityQuarternion();
 
     /* The following line of code tells OpenGL to use "smooth shading" (aka
      * Gouraud shading) when rendering.
@@ -511,6 +540,34 @@ void reshape(int width, int height)
     glutPostRedisplay();
 }
 
+void applyArcBallRotation(void) 
+{
+    Quarternion q = multiplyQuarternion(curr_rotation, last_rotation);
+    GLfloat rot[16];
+
+    rot[0] = 1 - 2 * q.im.y * q.im.y - 2 * q.im.z * q.im.z;
+    rot[1] = 2 * (q.im.x * q.im.y - q.im.z * q.real);
+    rot[2] = 2 * (q.im.x * q.im.z + q.im.y * q.real);
+    rot[3] = 0;
+
+    rot[4] = 2 * (q.im.x * q.im.y + q.im.z * q.real);
+    rot[5] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.z * q.im.z;
+    rot[6] = 2 * (q.im.y * q.im.z - q.im.x * q.real);
+    rot[7] = 0;
+
+    rot[8] = 2 * (q.im.x * q.im.z - q.im.y * q.real);
+    rot[9] = 2 * (q.im.y * q.im.z + q.im.x * q.real);
+    rot[10] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.y * q.im.y;
+    rot[11] = 0;
+    
+    rot[12] = 0;
+    rot[13] = 0;
+    rot[14] = 0;
+    rot[15] = 1;
+
+    glMultMatrixf(rot);
+}
+
 /* 'display' function:
  * 
  * You will see down below in the 'main' function that whenever we create a
@@ -555,6 +612,7 @@ void display(void)
      * to the identity matrix:
      */
     glLoadIdentity();
+
     /* Now, if you recall, for a given object, we want to FIRST multiply the
      * coordinates of its points by the translations, rotations, and scalings
      * applied to the object and THEN multiply by the inverse camera rotations
@@ -626,6 +684,8 @@ void display(void)
     /* ^ And that should be it for the camera transformations.
      */
     
+    applyArcBallRotation();
+
     /* Our next step is to set up all the lights in their specified positions.
      * Our helper function, 'set_lights' does this for us. See the function
      * for more details.
@@ -1015,6 +1075,20 @@ void draw_objects()
     glPopMatrix();
 }
 
+Quarternion multiplyQuarternion(Quarternion qa, Quarternion qb) 
+{
+    Quarternion product;
+    Vector3f va (qa.im.x, qa.im.y, qa.im.z);
+    Vector3f vb (qb.im.x, qb.im.y, qb.im.z);
+
+    product.real = qa.real * qb.real - va.dot(vb);
+    Vector3f v_product = (qa.real * vb) + (qb.real * va) + va.cross(vb);
+    product.im.x = v_product[0];
+    product.im.y = v_product[1];
+    product.im.z = v_product[2];
+    return product;
+}
+
 /* 'mouse_pressed' function:
  * 
  * This function is meant to respond to mouse clicks and releases. The
@@ -1032,6 +1106,7 @@ void draw_objects()
  */
 void mouse_pressed(int button, int state, int x, int y)
 {
+    // MOUSE CLICKED
     /* If the left-mouse button was clicked down, then...
      */
     if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
@@ -1046,14 +1121,52 @@ void mouse_pressed(int button, int state, int x, int y)
          */
         is_pressed = true;
     }
+
+    // MOUSE RELEASED
     /* If the left-mouse button was released up, then...
      */
     else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
     {
+        last_rotation = multiplyQuarternion(curr_rotation, last_rotation);
+        curr_rotation = getIdentityQuarternion();
+
         /* Mouse is no longer being pressed, so set our indicator to false.
          */
         is_pressed = false;
     }
+}
+
+float screenToNDC(int coord, bool x) {
+    if (x) {
+        return coord * 1.0 / glutGet(GLUT_SCREEN_WIDTH) * 2 - 1;
+    }
+    return coord * 1.0 / glutGet(GLUT_SCREEN_HEIGHT) * 2 - 1;
+}
+
+float getZNDC(float x, float y) {
+    float squared = x * x + y * y;
+    if (squared > 1) {
+        return 0.0f;
+    }
+    return sqrt(1 - squared);
+}
+
+void computeRotationQuarternion(Quartenion &q, int x, int y) {
+    float x_start = screenToNDC(mouse_x, true);
+    float y_start = screenToNDC(mouse_y, false);
+    float z_start = getZNDC(x_start, y_start);
+    float x_curr = screenToNDC(x, true);
+    float y_curr = screenToNDC(y, false);
+    float z_curr = getZNDC(x_curr, y_curr);
+    Vector3f start (x_start, y_start, z_start);
+    Vector3f curr (x_curr, y_curr, z_curr);
+    float thetaHalf = start.dot(curr) / (start.norm() * curr.norm());
+    thetaHalf = 0.5 * arccos(min(1.0f, theta));
+    Vector3f u = start.cross(curr);
+    q.real = cos(thetaHalf);
+    q.im.x = u[0] * sin(thetaHalf);
+    q.im.x = u[1] * sin(thetaHalf);
+    q.im.z = u[2] * sin(thetaHalf);
 }
 
 /* 'mouse_moved' function:
@@ -1073,54 +1186,7 @@ void mouse_moved(int x, int y)
      */
     if(is_pressed)
     {
-        /* You see in the 'mouse_pressed' function that when the left-mouse button
-         * is first clicked down, we store the screen coordinates of where the
-         * mouse was pressed down in 'mouse_x' and 'mouse_y'. When we move the
-         * mouse, its screen coordinates change and are captured by the 'x' and
-         * 'y' parameters to the 'mouse_moved' function. We want to compute a change
-         * in our camera angle based on the distance that the mouse traveled.
-         *
-         * We have two distances traveled: a dx equal to 'x' - 'mouse_x' and a
-         * dy equal to 'y' - 'mouse_y'. We need to compute the desired changes in
-         * the horizontal (x) angle of the camera and the vertical (y) angle of
-         * the camera.
-         * 
-         * Let's start with the horizontal angle change. We first need to convert
-         * the dx traveled in screen coordinates to a dx traveled in camera space.
-         * The conversion is done using our 'mouse_scale_x' variable, which we
-         * set in our 'reshape' function. We then multiply by our 'x_view_step'
-         * variable, which is an arbitrary value that determines how "fast" we
-         * want the camera angle to change. Higher values for 'x_view_step' cause
-         * the camera to move more when we drag the mouse. We had set 'x_view_step'
-         * to 90 at the top of this file (where we declared all our variables).
-         * 
-         * We then add the horizontal change in camera angle to our 'x_view_angle'
-         * variable, which keeps track of the cumulative horizontal change in our
-         * camera angle. 'x_view_angle' is used in the camera rotations specified
-         * in the 'display' function.
-         */
-        x_view_angle += ((float) x - (float) mouse_x) * mouse_scale_x * x_view_step;
-        
-        /* We do basically the same process as above to compute the vertical change
-         * in camera angle. The only real difference is that we want to keep the
-         * camera angle changes realistic, and it is unrealistic for someone in
-         * real life to be able to change their vertical "camera angle" more than
-         * ~90 degrees (they would have to detach their head and spin it vertically
-         * or something...). So we decide to restrict the cumulative vertical angle
-         * change between -90 and 90 degrees.
-         */
-        float temp_y_view_angle = y_view_angle +
-                                  ((float) y - (float) mouse_y) * mouse_scale_y * y_view_step;
-        y_view_angle = (temp_y_view_angle > 90 || temp_y_view_angle < -90) ?
-                       y_view_angle : temp_y_view_angle;
-        
-        /* We update our 'mouse_x' and 'mouse_y' variables so that if the user moves
-         * the mouse again without releasing it, then the distance we compute on the
-         * next call to the 'mouse_moved' function will be from this current mouse
-         * position.
-         */
-        mouse_x = x;
-        mouse_y = y;
+        computeRotationQuarternion(curr_rotation, x, y);
         
         /* Tell OpenGL that it needs to re-render our scene with the new camera
          * angles.
