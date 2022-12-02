@@ -198,7 +198,7 @@ struct Quarternion
 };
 
 Quarternion getIdentityQuarternion(void) {
-    Quartenion q;
+    Quarternion q;
     q.real = 1;
     q.im = (Triple) {0.0f, 0.0f, 0.0f};
     return q;
@@ -539,6 +539,57 @@ void reshape(int width, int height)
     glutPostRedisplay();
 }
 
+//////////////////////////////////////////////////////////////////////////
+
+/* Quarternion Support functions that make ArcBall Rotation Possible */
+
+float screenToNDC(int coord, bool x) {
+    if (x) {
+        return coord * 1.0 / glutGet(GLUT_SCREEN_WIDTH) * 2 - 1;
+    }
+    return coord * 1.0 / glutGet(GLUT_SCREEN_HEIGHT) * 2 - 1;
+}
+
+float getZNDC(float x, float y) {
+    float squared = x * x + y * y;
+    if (squared > 1) {
+        return 0.0f;
+    }
+    return sqrt(1 - squared);
+}
+
+void computeRotationQuarternion(Quarternion &q, int x, int y) {
+    float x_start = screenToNDC(mouse_x, true);
+    float y_start = screenToNDC(mouse_y, false);
+    float z_start = getZNDC(x_start, y_start);
+    float x_curr = screenToNDC(x, true);
+    float y_curr = screenToNDC(y, false);
+    float z_curr = getZNDC(x_curr, y_curr);
+    Vector3f start (x_start, y_start, z_start);
+    Vector3f curr (x_curr, y_curr, z_curr);
+    float thetaHalf = start.dot(curr) / (start.norm() * curr.norm());
+    thetaHalf = 0.5 * arccos(min(1.0f, theta));
+    Vector3f u = start.cross(curr);
+    q.real = cos(thetaHalf);
+    q.im.x = u[0] * sin(thetaHalf);
+    q.im.x = u[1] * sin(thetaHalf);
+    q.im.z = u[2] * sin(thetaHalf);
+}
+
+Quarternion multiplyQuarternion(Quarternion qa, Quarternion qb) 
+{
+    Quarternion product;
+    Vector3f va (qa.im.x, qa.im.y, qa.im.z);
+    Vector3f vb (qb.im.x, qb.im.y, qb.im.z);
+
+    product.real = qa.real * qb.real - va.dot(vb);
+    Vector3f v_product = (qa.real * vb) + (qb.real * va) + va.cross(vb);
+    product.im.x = v_product[0];
+    product.im.y = v_product[1];
+    product.im.z = v_product[2];
+    return product;
+}
+
 void applyArcBallRotation(void) 
 {
     Quarternion q = multiplyQuarternion(curr_rotation, last_rotation);
@@ -566,6 +617,9 @@ void applyArcBallRotation(void)
 
     glMultMatrixf(rot);
 }
+
+//////////////////////////////////////////////////////////////////////////
+
 
 /* 'display' function:
  * 
@@ -683,6 +737,12 @@ void display(void)
     /* ^ And that should be it for the camera transformations.
      */
     
+    /* Uses the defined Quarternion support functions above to back multiply 
+     * the ModelView Matrix by the Quarternion Rotation Matrix so that the scene can 
+     * be contained within the rotated ArcBall sphere. 
+     * 
+     * ModelView = ModelView * Quarternion_Rotation
+     */
     applyArcBallRotation();
 
     /* Our next step is to set up all the lights in their specified positions.
@@ -1074,20 +1134,6 @@ void draw_objects()
     glPopMatrix();
 }
 
-Quarternion multiplyQuarternion(Quarternion qa, Quarternion qb) 
-{
-    Quarternion product;
-    Vector3f va (qa.im.x, qa.im.y, qa.im.z);
-    Vector3f vb (qb.im.x, qb.im.y, qb.im.z);
-
-    product.real = qa.real * qb.real - va.dot(vb);
-    Vector3f v_product = (qa.real * vb) + (qb.real * va) + va.cross(vb);
-    product.im.x = v_product[0];
-    product.im.y = v_product[1];
-    product.im.z = v_product[2];
-    return product;
-}
-
 /* 'mouse_pressed' function:
  * 
  * This function is meant to respond to mouse clicks and releases. The
@@ -1135,39 +1181,6 @@ void mouse_pressed(int button, int state, int x, int y)
     }
 }
 
-float screenToNDC(int coord, bool x) {
-    if (x) {
-        return coord * 1.0 / glutGet(GLUT_SCREEN_WIDTH) * 2 - 1;
-    }
-    return coord * 1.0 / glutGet(GLUT_SCREEN_HEIGHT) * 2 - 1;
-}
-
-float getZNDC(float x, float y) {
-    float squared = x * x + y * y;
-    if (squared > 1) {
-        return 0.0f;
-    }
-    return sqrt(1 - squared);
-}
-
-void computeRotationQuarternion(Quartenion &q, int x, int y) {
-    float x_start = screenToNDC(mouse_x, true);
-    float y_start = screenToNDC(mouse_y, false);
-    float z_start = getZNDC(x_start, y_start);
-    float x_curr = screenToNDC(x, true);
-    float y_curr = screenToNDC(y, false);
-    float z_curr = getZNDC(x_curr, y_curr);
-    Vector3f start (x_start, y_start, z_start);
-    Vector3f curr (x_curr, y_curr, z_curr);
-    float thetaHalf = start.dot(curr) / (start.norm() * curr.norm());
-    thetaHalf = 0.5 * arccos(min(1.0f, theta));
-    Vector3f u = start.cross(curr);
-    q.real = cos(thetaHalf);
-    q.im.x = u[0] * sin(thetaHalf);
-    q.im.x = u[1] * sin(thetaHalf);
-    q.im.z = u[2] * sin(thetaHalf);
-}
-
 /* 'mouse_moved' function:
  *
  * This function is meant to respond to when the mouse is being moved. There
@@ -1185,6 +1198,8 @@ void mouse_moved(int x, int y)
      */
     if(is_pressed)
     {
+        /* Saves the rotation that needs to be done for where the mouse 
+         * is now as the current rotation. */
         computeRotationQuarternion(curr_rotation, x, y);
         
         /* Tell OpenGL that it needs to re-render our scene with the new camera
@@ -1229,14 +1244,14 @@ void key_pressed(unsigned char key, int x, int y)
 {
     /* If 'q' is pressed, quit the program.
      */
-    if(key == 'q')
+    if (key == 'q')
     {
         exit(0);
     }
     /* If 't' is pressed, toggle our 'wireframe_mode' boolean to make OpenGL
      * render our cubes as surfaces of wireframes.
      */
-    else if(key == 't')
+    else if (key == 't')
     {
         wireframe_mode = !wireframe_mode;
         /* Tell OpenGL that it needs to re-render our scene with the cubes
