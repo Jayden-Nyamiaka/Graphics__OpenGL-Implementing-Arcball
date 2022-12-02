@@ -68,8 +68,7 @@
 
 /* Eigen Library included for ArcBall */
 #include <Eigen/Dense>
-using Eigen::Matrix4f;
-Using Eigen::Vector4f;
+using Eigen::Vector3f;
 
 using namespace std;
 
@@ -160,7 +159,7 @@ struct Triple
  * need to do is supply the parameters.
  */
 
-enum transformType { translate, rotate, scale };
+enum transformType { translation, rotation, scaling };
 
 struct Transform {
     /* Indicates type of transformation*/
@@ -198,7 +197,7 @@ struct Quarternion
     Triple im;
 };
 
-Quartenion getIdentityQuarternion() {
+Quarternion getIdentityQuarternion(void) {
     Quartenion q;
     q.real = 1;
     q.im = (Triple) {0.0f, 0.0f, 0.0f};
@@ -917,18 +916,18 @@ void draw_objects()
                 for (int transformIdx = num_transforms - 1; transformIdx >= 0; --transformIdx)
                 {
                     switch(inst.transforms[transformIdx].type) {
-                        case translate :
+                        case translation :
                             glTranslatef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
-                        case rotate :
+                        case rotation :
                             glRotatef(inst.transforms[transformIdx].data[3],
                                     inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
-                        case scale :
+                        case scaling :
                             glScalef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
@@ -1546,12 +1545,12 @@ void parseFormatFile(string filename)
         transformation.data[1] = stof(line[2]);
         transformation.data[2] = stof(line[3]);
         if (line[0][0] == 't') {
-            transformation.type = translate;
+            transformation.type = translation;
         } else if (line[0][0] == 'r') {
-            transformation.type = rotate;
+            transformation.type = rotation;
             transformation.data[3] = rad2deg(stof(line[4])); 
         } else {
-            transformation.type = scale;
+            transformation.type = scaling;
         }
 
         /* Adds the transform to the object instance's list of tranforms */
