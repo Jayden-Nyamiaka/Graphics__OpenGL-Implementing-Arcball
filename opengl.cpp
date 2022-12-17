@@ -560,20 +560,19 @@ void computeRotationMatrix(int x, int y) {
     theta = acos(min(1.0f, theta));
     Vector3f u = start.cross(curr);
     u.normalize();
-    curr_rotation = Matrix4f( u[0]*u[0] + (1.0f - u[0]*u[0]) * cos(theta), 
-                              u[0]*u[1] * (1.0f - cos(theta)) - u[2] * sin(theta), 
-                              u[0]*u[2] * (1.0f - cos(theta)) + u[1] * sin(theta), 
-                              0, 
-                              u[1]*u[0] * (1.0f - cos(theta)) + u[2] * sin(theta), 
-                              u[1]*u[1] + (1.0f - u[1]*u[1]) * cos(theta), 
-                              u[1]*u[2] * (1.0f - cos(theta)) - u[0] * sin(theta), 
-                              0, 
-                              u[2]*u[0] * (1.0f - cos(theta)) - u[1] * sin(theta), 
-                              u[2]*u[1] * (1.0f - cos(theta)) + u[0] * sin(theta), 
-                              u[2]*u[2] + (1.0f - u[2]*u[2]) * cos(theta), 
-                              0,
-                              0, 0, 0, 1 );
-
+    curr_rotation << (float) (u[0]*u[0] + (1.0f - u[0]*u[0]) * cos(theta)), 
+                     (float) (u[0]*u[1] * (1.0f - cos(theta)) - u[2] * sin(theta)), 
+                     (float) (u[0]*u[2] * (1.0f - cos(theta)) + u[1] * sin(theta)), 
+                     0.0f, 
+                     (float) (u[1]*u[0] * (1.0f - cos(theta)) + u[2] * sin(theta)), 
+                     (float) (u[1]*u[1] + (1.0f - u[1]*u[1]) * cos(theta)), 
+                     (float) (u[1]*u[2] * (1.0f - cos(theta)) - u[0] * sin(theta)), 
+                     0.0f, 
+                     (float) (u[2]*u[0] * (1.0f - cos(theta)) - u[1] * sin(theta)), 
+                     (float) (u[2]*u[1] * (1.0f - cos(theta)) + u[0] * sin(theta)), 
+                     (float) (u[2]*u[2] + (1.0f - u[2]*u[2]) * cos(theta)), 
+                     0.0f,
+                     0.0f, 0.0f, 0.0f, 1.0f;
 }
 
 void applyArcBallRotation(void) 
