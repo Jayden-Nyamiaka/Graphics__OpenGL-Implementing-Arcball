@@ -66,10 +66,6 @@
 /* Map library used to store objects by name */
 #include <map>
 
-/* Eigen Library included for ArcBall */
-#include <Eigen/Dense>
-using Eigen::Vector3f;
-
 using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -159,7 +155,7 @@ struct Triple
  * need to do is supply the parameters.
  */
 
-enum transformType { translation, rotation, scaling };
+enum transformType { translate, rotate, scale };
 
 struct Transform {
     /* Indicates type of transformation*/
@@ -190,19 +186,6 @@ struct Instance
 
     vector<Transform> transforms;
 };
-
-struct Quarternion
-{
-    float real;
-    Triple im;
-};
-
-Quarternion getIdentityQuarternion(void) {
-    Quarternion q;
-    q.real = 1;
-    q.im = (Triple) {0.0f, 0.0f, 0.0f};
-    return q;
-}
 
 /* The following struct is used to represent objects.
  *
@@ -286,13 +269,6 @@ map<string, Object> objects;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* Quarternions that control ArcBall Rotations
- */
-Quarternion last_rotation;
-Quarternion curr_rotation;
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
 /* The following are parameters for creating an interactive first-person camera
  * view of the scene. The variables will make more sense when explained in
  * context, so you should just look at the 'mousePressed', 'mouseMoved', and
@@ -352,10 +328,6 @@ void init(string filename)
 {
     /* Extracts all information from format file entered in command line */
     parseFormatFile(filename);
-
-    /* Rotation Quarternion Initializations */
-    last_rotation = getIdentityQuarternion();
-    curr_rotation = getIdentityQuarternion();
 
     /* The following line of code tells OpenGL to use "smooth shading" (aka
      * Gouraud shading) when rendering.
@@ -539,89 +511,6 @@ void reshape(int width, int height)
     glutPostRedisplay();
 }
 
-//////////////////////////////////////////////////////////////////////////
-
-/* Quarternion Support functions that make ArcBall Rotation Possible */
-
-float screenToNDC(int coord, bool x) {
-    if (x) {
-        return coord * 1.0 / glutGet(GLUT_SCREEN_WIDTH) * 2 - 1;
-    }
-    return coord * 1.0 / glutGet(GLUT_SCREEN_HEIGHT) * 2 - 1;
-}
-
-float getZNDC(float x, float y) {
-    float squared = x * x + y * y;
-    if (squared > 1) {
-        return 0.0f;
-    }
-    return sqrt(1 - squared);
-}
-
-void computeRotationQuarternion(Quarternion &q, int x, int y) {
-    float x_start = screenToNDC(mouse_x, true);
-    float y_start = screenToNDC(mouse_y, false);
-    float z_start = getZNDC(x_start, y_start);
-    float x_curr = screenToNDC(x, true);
-    float y_curr = screenToNDC(y, false);
-    float z_curr = getZNDC(x_curr, y_curr);
-    Vector3f start (x_start, y_start, z_start);
-    Vector3f curr (x_curr, y_curr, z_curr);
-    float thetaHalf = start.dot(curr) / (start.norm() * curr.norm());
-    thetaHalf = 0.5 * acos(min(1.0f, thetaHalf));
-    Vector3f u = start.cross(curr);
-    u.normalize();
-    q.real = cos(thetaHalf);
-    q.im.x = u[0] * sin(thetaHalf);
-    q.im.x = u[1] * sin(thetaHalf);
-    q.im.z = u[2] * sin(thetaHalf);
-}
-
-Quarternion multiplyQuarternion(Quarternion qa, Quarternion qb) 
-{
-    Quarternion product;
-    Vector3f va (qa.im.x, qa.im.y, qa.im.z);
-    Vector3f vb (qb.im.x, qb.im.y, qb.im.z);
-
-    product.real = qa.real * qb.real - va.dot(vb);
-    Vector3f v_product = (qa.real * vb) + (qb.real * va) + va.cross(vb);
-    product.im.x = v_product[0];
-    product.im.y = v_product[1];
-    product.im.z = v_product[2];
-    return product;
-}
-
-void applyArcBallRotation(void) 
-{
-    Quarternion q = multiplyQuarternion(curr_rotation, last_rotation);
-    GLfloat rot[16];
-
-    rot[0] = 1 - 2 * q.im.y * q.im.y - 2 * q.im.z * q.im.z;
-    rot[1] = 2 * (q.im.x * q.im.y - q.im.z * q.real);
-    rot[2] = 2 * (q.im.x * q.im.z + q.im.y * q.real);
-    rot[3] = 0;
-
-    rot[4] = 2 * (q.im.x * q.im.y + q.im.z * q.real);
-    rot[5] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.z * q.im.z;
-    rot[6] = 2 * (q.im.y * q.im.z - q.im.x * q.real);
-    rot[7] = 0;
-
-    rot[8] = 2 * (q.im.x * q.im.z - q.im.y * q.real);
-    rot[9] = 2 * (q.im.y * q.im.z + q.im.x * q.real);
-    rot[10] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.y * q.im.y;
-    rot[11] = 0;
-    
-    rot[12] = 0;
-    rot[13] = 0;
-    rot[14] = 0;
-    rot[15] = 1;
-
-    glMultMatrixf(rot);
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-
 /* 'display' function:
  * 
  * You will see down below in the 'main' function that whenever we create a
@@ -666,7 +555,6 @@ void display(void)
      * to the identity matrix:
      */
     glLoadIdentity();
-
     /* Now, if you recall, for a given object, we want to FIRST multiply the
      * coordinates of its points by the translations, rotations, and scalings
      * applied to the object and THEN multiply by the inverse camera rotations
@@ -738,14 +626,6 @@ void display(void)
     /* ^ And that should be it for the camera transformations.
      */
     
-    /* Uses the defined Quarternion support functions above to back multiply 
-     * the ModelView Matrix by the Quarternion Rotation Matrix so that the scene can 
-     * be contained within the rotated ArcBall sphere. 
-     * 
-     * ModelView = ModelView * Quarternion_Rotation
-     */
-    applyArcBallRotation();
-
     /* Our next step is to set up all the lights in their specified positions.
      * Our helper function, 'set_lights' does this for us. See the function
      * for more details.
@@ -909,7 +789,7 @@ void set_lights()
  * This function has OpenGL render our objects to the display screen.
  */
 void draw_objects()
-{   
+{
     for (map<string, Object>::iterator obj_iter = objects.begin(); 
                                     obj_iter != objects.end(); obj_iter++) {
         Object &obj = objects[obj_iter->first];
@@ -967,7 +847,7 @@ void draw_objects()
              * Keep all this in mind to come up with an appropriate way to store and apply
              * geometric transformations for each object in your scenes.
              */
-            for (int instanceIdx = 0; instanceIdx < num_instances; ++instanceIdx)
+            for(int j = 0; j < num_instances; ++j)
             {
                 Instance &inst = obj.instances[instanceIdx];
                 int num_transforms = inst.transforms.size();
@@ -977,141 +857,144 @@ void draw_objects()
                 for (int transformIdx = num_transforms - 1; transformIdx >= 0; --transformIdx)
                 {
                     switch(inst.transforms[transformIdx].type) {
-                        case translation :
+                        case translate :
+                            cerr << transformIdx << " translate" << endl;
                             glTranslatef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
-                        case rotation :
+                        case rotate :
+                            cerr << transformIdx << " rotate" << endl;
                             glRotatef(inst.transforms[transformIdx].data[3],
                                     inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
-                        case scaling :
+                        case scale :
+                            cerr << transformIdx << " scale" << endl;
                             glScalef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                     }
                 }
-            
-                /* The 'glMaterialfv' and 'glMaterialf' functions tell OpenGL
-                * the material properties of the surface we want to render.
-                * The parameters for 'glMaterialfv' are (in the following order):
-                *
-                * - enum face: Options are 'GL_FRONT' for front-face rendering,
-                *              'GL_BACK' for back-face rendering, and
-                *              'GL_FRONT_AND_BACK' for rendering both sides.
-                * - enum property: this varies on what you are setting up
-                *                  e.g. 'GL_AMBIENT' for ambient reflectance
-                * - float* values: a set of values for the specified property
-                *                  e.g. an array of RGB values for the reflectance
-                *
-                * The 'glMaterialf' function is the same, except the third
-                * parameter is only a single float value instead of an array of
-                * values. 'glMaterialf' is used to set the shininess property.
-                */
-                glMaterialfv(GL_FRONT, GL_AMBIENT, inst.ambient_reflect);
-                glMaterialfv(GL_FRONT, GL_DIFFUSE, inst.diffuse_reflect);
-                glMaterialfv(GL_FRONT, GL_SPECULAR, inst.specular_reflect);
-                glMaterialf(GL_FRONT, GL_SHININESS, inst.shininess);
-            
-                /* The next few lines of code are how we tell OpenGL to render
-                * geometry for us. First, let us look at the 'glVertexPointer'
-                * function.
-                * 
-                * 'glVertexPointer' tells OpenGL the specifications for our
-                * "vertex array". As a recap of the comments from the 'Object'
-                * struct, the "vertex array" stores all the faces of the surface
-                * we want to render. The faces are stored in the array as
-                * consecutive points. For instance, if our surface were a cube,
-                * then our "vertex array" could be the following:
-                *
-                * [face1vertex1, face1vertex2, face1vertex3, face1vertex4,
-                *  face2vertex1, face2vertex2, face2vertex3, face2vertex4,
-                *  face3vertex1, face3vertex2, face3vertex3, face3vertex4,
-                *  face4vertex1, face4vertex2, face4vertex3, face4vertex4,
-                *  face5vertex1, face5vertex2, face5vertex3, face5vertex4,
-                *  face6vertex1, face6vertex2, face6vertex3, face6vertex4]
-                * 
-                * Obviously to us, some of the vertices in the array are repeats.
-                * However, the repeats cannot be avoided since OpenGL requires
-                * this explicit specification of the faces.
-                *
-                * The parameters to the 'glVertexPointer' function are as
-                * follows:
-                *
-                * - int num_points_per_face: this is the parameter that tells
-                *                            OpenGL where the breaks between
-                *                            faces are in the vertex array.
-                *                            Below, we set this parameter to 3,
-                *                            which tells OpenGL to treat every
-                *                            set of 3 consecutive vertices in
-                *                            the vertex array as 1 face. So
-                *                            here, our vertex array is an array
-                *                            of triangle faces.
-                *                            If we were using the example vertex
-                *                            array above, we would have set this
-                *                            parameter to 4 instead of 3.
-                * - enum type_of_coordinates: this parameter tells OpenGL whether
-                *                             our vertex coordinates are ints,
-                *                             floats, doubles, etc. In our case,
-                *                             we are using floats, hence 'GL_FLOAT'.
-                * - sizei stride: this parameter specifies the number of bytes
-                *                 between consecutive vertices in the array.
-                *                 Most often, you will set this parameter to 0
-                *                 (i.e. no offset between consecutive vertices).
-                * - void* pointer_to_array: this parameter is the pointer to
-                *                           our vertex array.
-                */
-                glVertexPointer(3, GL_FLOAT, 0, &obj.vertex_buffer[0]);
-                /* The "normal array" is the equivalent array for normals.
-                * Each normal in the normal array corresponds to the vertex
-                * of the same index in the vertex array.
-                *
-                * The 'glNormalPointer' function has the following parameters:
-                *
-                * - enum type_of_normals: e.g. int, float, double, etc
-                * - sizei stride: same as the stride parameter in 'glVertexPointer'
-                * - void* pointer_to_array: the pointer to the normal array
-                */
-                glNormalPointer(GL_FLOAT, 0, &obj.normal_buffer[0]);
-                
-                int buffer_size = obj.vertex_buffer.size();
-                
-                if(!wireframe_mode)
-                    /* Finally, we tell OpenGL to render everything with the
-                    * 'glDrawArrays' function. The parameters are:
-                    * 
-                    * - enum mode: in our case, we want to render triangles,
-                    *              so we specify 'GL_TRIANGLES'. If we wanted
-                    *              to render squares, then we would use
-                    *              'GL_QUADS' (for quadrilaterals).
-                    * - int start_index: the index of the first vertex
-                    *                    we want to render in our array
-                    * - int num_vertices: number of vertices to render
-                    *
-                    * As OpenGL renders all the faces, it automatically takes
-                    * into account all the specifications we have given it to
-                    * do all the lighting calculations for us. It also applies
-                    * the Modelview and Projection matrix transformations to
-                    * the vertices and converts everything to screen coordinates
-                    * using our Viewport specification. Everything is rendered
-                    * onto the off-screen buffer.
-                    */
-                    glDrawArrays(GL_TRIANGLES, 0, buffer_size);
-                else
-                    /* If we are in "wireframe mode" (see the 'key_pressed'
-                    * function for more information), then we want to render
-                    * lines instead of triangle surfaces. To render lines,
-                    * we use the 'GL_LINE_LOOP' enum for the mode parameter.
-                    * However, we need to draw each face frame one at a time
-                    * to render the wireframe correctly. We can do so with a
-                    * for loop:
-                    */
-                    for(int j = 0; j < buffer_size; j += 3)
-                        glDrawArrays(GL_LINE_LOOP, j, 3);
             }
+            
+            /* The 'glMaterialfv' and 'glMaterialf' functions tell OpenGL
+             * the material properties of the surface we want to render.
+             * The parameters for 'glMaterialfv' are (in the following order):
+             *
+             * - enum face: Options are 'GL_FRONT' for front-face rendering,
+             *              'GL_BACK' for back-face rendering, and
+             *              'GL_FRONT_AND_BACK' for rendering both sides.
+             * - enum property: this varies on what you are setting up
+             *                  e.g. 'GL_AMBIENT' for ambient reflectance
+             * - float* values: a set of values for the specified property
+             *                  e.g. an array of RGB values for the reflectance
+             *
+             * The 'glMaterialf' function is the same, except the third
+             * parameter is only a single float value instead of an array of
+             * values. 'glMaterialf' is used to set the shininess property.
+             */
+            glMaterialfv(GL_FRONT, GL_AMBIENT, obj.instances[0].ambient_reflect);
+            glMaterialfv(GL_FRONT, GL_DIFFUSE, obj.instances[0].diffuse_reflect);
+            glMaterialfv(GL_FRONT, GL_SPECULAR, obj.instances[0].specular_reflect);
+            glMaterialf(GL_FRONT, GL_SHININESS, obj.instances[0].shininess);
+            
+            /* The next few lines of code are how we tell OpenGL to render
+             * geometry for us. First, let us look at the 'glVertexPointer'
+             * function.
+             * 
+             * 'glVertexPointer' tells OpenGL the specifications for our
+             * "vertex array". As a recap of the comments from the 'Object'
+             * struct, the "vertex array" stores all the faces of the surface
+             * we want to render. The faces are stored in the array as
+             * consecutive points. For instance, if our surface were a cube,
+             * then our "vertex array" could be the following:
+             *
+             * [face1vertex1, face1vertex2, face1vertex3, face1vertex4,
+             *  face2vertex1, face2vertex2, face2vertex3, face2vertex4,
+             *  face3vertex1, face3vertex2, face3vertex3, face3vertex4,
+             *  face4vertex1, face4vertex2, face4vertex3, face4vertex4,
+             *  face5vertex1, face5vertex2, face5vertex3, face5vertex4,
+             *  face6vertex1, face6vertex2, face6vertex3, face6vertex4]
+             * 
+             * Obviously to us, some of the vertices in the array are repeats.
+             * However, the repeats cannot be avoided since OpenGL requires
+             * this explicit specification of the faces.
+             *
+             * The parameters to the 'glVertexPointer' function are as
+             * follows:
+             *
+             * - int num_points_per_face: this is the parameter that tells
+             *                            OpenGL where the breaks between
+             *                            faces are in the vertex array.
+             *                            Below, we set this parameter to 3,
+             *                            which tells OpenGL to treat every
+             *                            set of 3 consecutive vertices in
+             *                            the vertex array as 1 face. So
+             *                            here, our vertex array is an array
+             *                            of triangle faces.
+             *                            If we were using the example vertex
+             *                            array above, we would have set this
+             *                            parameter to 4 instead of 3.
+             * - enum type_of_coordinates: this parameter tells OpenGL whether
+             *                             our vertex coordinates are ints,
+             *                             floats, doubles, etc. In our case,
+             *                             we are using floats, hence 'GL_FLOAT'.
+             * - sizei stride: this parameter specifies the number of bytes
+             *                 between consecutive vertices in the array.
+             *                 Most often, you will set this parameter to 0
+             *                 (i.e. no offset between consecutive vertices).
+             * - void* pointer_to_array: this parameter is the pointer to
+             *                           our vertex array.
+             */
+            glVertexPointer(3, GL_FLOAT, 0, &objects[obj_iter->first].vertex_buffer[0]);
+            /* The "normal array" is the equivalent array for normals.
+             * Each normal in the normal array corresponds to the vertex
+             * of the same index in the vertex array.
+             *
+             * The 'glNormalPointer' function has the following parameters:
+             *
+             * - enum type_of_normals: e.g. int, float, double, etc
+             * - sizei stride: same as the stride parameter in 'glVertexPointer'
+             * - void* pointer_to_array: the pointer to the normal array
+             */
+            glNormalPointer(GL_FLOAT, 0, &objects[obj_iter->first].normal_buffer[0]);
+            
+            int buffer_size = obj.vertex_buffer.size();
+            
+            if(!wireframe_mode)
+                /* Finally, we tell OpenGL to render everything with the
+                 * 'glDrawArrays' function. The parameters are:
+                 * 
+                 * - enum mode: in our case, we want to render triangles,
+                 *              so we specify 'GL_TRIANGLES'. If we wanted
+                 *              to render squares, then we would use
+                 *              'GL_QUADS' (for quadrilaterals).
+                 * - int start_index: the index of the first vertex
+                 *                    we want to render in our array
+                 * - int num_vertices: number of vertices to render
+                 *
+                 * As OpenGL renders all the faces, it automatically takes
+                 * into account all the specifications we have given it to
+                 * do all the lighting calculations for us. It also applies
+                 * the Modelview and Projection matrix transformations to
+                 * the vertices and converts everything to screen coordinates
+                 * using our Viewport specification. Everything is rendered
+                 * onto the off-screen buffer.
+                 */
+                glDrawArrays(GL_TRIANGLES, 0, buffer_size);
+            else
+                /* If we are in "wireframe mode" (see the 'key_pressed'
+                 * function for more information), then we want to render
+                 * lines instead of triangle surfaces. To render lines,
+                 * we use the 'GL_LINE_LOOP' enum for the mode parameter.
+                 * However, we need to draw each face frame one at a time
+                 * to render the wireframe correctly. We can do so with a
+                 * for loop:
+                 */
+                for(int j = 0; j < buffer_size; j += 3)
+                    glDrawArrays(GL_LINE_LOOP, j, 3);
         }
         /* As discussed before, we use 'glPopMatrix' to get back the
          * version of the Modelview Matrix that we had before we specified
@@ -1152,7 +1035,6 @@ void draw_objects()
  */
 void mouse_pressed(int button, int state, int x, int y)
 {
-    // MOUSE CLICKED
     /* If the left-mouse button was clicked down, then...
      */
     if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
@@ -1167,15 +1049,10 @@ void mouse_pressed(int button, int state, int x, int y)
          */
         is_pressed = true;
     }
-
-    // MOUSE RELEASED
     /* If the left-mouse button was released up, then...
      */
     else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
     {
-        last_rotation = multiplyQuarternion(curr_rotation, last_rotation);
-        curr_rotation = getIdentityQuarternion();
-
         /* Mouse is no longer being pressed, so set our indicator to false.
          */
         is_pressed = false;
@@ -1199,9 +1076,54 @@ void mouse_moved(int x, int y)
      */
     if(is_pressed)
     {
-        /* Saves the rotation that needs to be done for where the mouse 
-         * is now as the current rotation. */
-        computeRotationQuarternion(curr_rotation, x, y);
+        /* You see in the 'mouse_pressed' function that when the left-mouse button
+         * is first clicked down, we store the screen coordinates of where the
+         * mouse was pressed down in 'mouse_x' and 'mouse_y'. When we move the
+         * mouse, its screen coordinates change and are captured by the 'x' and
+         * 'y' parameters to the 'mouse_moved' function. We want to compute a change
+         * in our camera angle based on the distance that the mouse traveled.
+         *
+         * We have two distances traveled: a dx equal to 'x' - 'mouse_x' and a
+         * dy equal to 'y' - 'mouse_y'. We need to compute the desired changes in
+         * the horizontal (x) angle of the camera and the vertical (y) angle of
+         * the camera.
+         * 
+         * Let's start with the horizontal angle change. We first need to convert
+         * the dx traveled in screen coordinates to a dx traveled in camera space.
+         * The conversion is done using our 'mouse_scale_x' variable, which we
+         * set in our 'reshape' function. We then multiply by our 'x_view_step'
+         * variable, which is an arbitrary value that determines how "fast" we
+         * want the camera angle to change. Higher values for 'x_view_step' cause
+         * the camera to move more when we drag the mouse. We had set 'x_view_step'
+         * to 90 at the top of this file (where we declared all our variables).
+         * 
+         * We then add the horizontal change in camera angle to our 'x_view_angle'
+         * variable, which keeps track of the cumulative horizontal change in our
+         * camera angle. 'x_view_angle' is used in the camera rotations specified
+         * in the 'display' function.
+         */
+        x_view_angle += ((float) x - (float) mouse_x) * mouse_scale_x * x_view_step;
+        
+        /* We do basically the same process as above to compute the vertical change
+         * in camera angle. The only real difference is that we want to keep the
+         * camera angle changes realistic, and it is unrealistic for someone in
+         * real life to be able to change their vertical "camera angle" more than
+         * ~90 degrees (they would have to detach their head and spin it vertically
+         * or something...). So we decide to restrict the cumulative vertical angle
+         * change between -90 and 90 degrees.
+         */
+        float temp_y_view_angle = y_view_angle +
+                                  ((float) y - (float) mouse_y) * mouse_scale_y * y_view_step;
+        y_view_angle = (temp_y_view_angle > 90 || temp_y_view_angle < -90) ?
+                       y_view_angle : temp_y_view_angle;
+        
+        /* We update our 'mouse_x' and 'mouse_y' variables so that if the user moves
+         * the mouse again without releasing it, then the distance we compute on the
+         * next call to the 'mouse_moved' function will be from this current mouse
+         * position.
+         */
+        mouse_x = x;
+        mouse_y = y;
         
         /* Tell OpenGL that it needs to re-render our scene with the new camera
          * angles.
@@ -1217,15 +1139,6 @@ void mouse_moved(int x, int y)
 float deg2rad(float angle)
 {
     return angle * M_PI / 180.0;
-}
-
-/* 'rad2deg' function:
- * 
- * Converts given angle in radians to degrees.
- */
-float rad2deg(float angle)
-{
-    return angle * 180.0 / M_PI;
 }
 
 /* 'key_pressed' function:
@@ -1245,14 +1158,14 @@ void key_pressed(unsigned char key, int x, int y)
 {
     /* If 'q' is pressed, quit the program.
      */
-    if (key == 'q')
+    if(key == 'q')
     {
         exit(0);
     }
     /* If 't' is pressed, toggle our 'wireframe_mode' boolean to make OpenGL
      * render our cubes as surfaces of wireframes.
      */
-    else if (key == 't')
+    else if(key == 't')
     {
         wireframe_mode = !wireframe_mode;
         /* Tell OpenGL that it needs to re-render our scene with the cubes
@@ -1440,7 +1353,7 @@ void parseFormatFile(string filename)
             cam_orientation_axis[0] = stof(line[1]);
             cam_orientation_axis[1] = stof(line[2]);
             cam_orientation_axis[2] = stof(line[3]);
-            cam_orientation_angle = rad2deg(stof(line[4]));
+            cam_orientation_angle = stof(line[4]);
         } else if (line[0] == "near") {
             near_param = stof(line[1]);
         } else if (line[0] == "far") {
@@ -1561,12 +1474,12 @@ void parseFormatFile(string filename)
         transformation.data[1] = stof(line[2]);
         transformation.data[2] = stof(line[3]);
         if (line[0][0] == 't') {
-            transformation.type = translation;
+            transformation.type = translate;
         } else if (line[0][0] == 'r') {
-            transformation.type = rotation;
-            transformation.data[3] = rad2deg(stof(line[4])); 
+            transformation.type = rotate;
+            transformation.data[3] = stof(line[4]); 
         } else {
-            transformation.type = scaling;
+            transformation.type = scale;
         }
 
         /* Adds the transform to the object instance's list of tranforms */

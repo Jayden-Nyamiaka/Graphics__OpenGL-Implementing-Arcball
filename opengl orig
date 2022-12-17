@@ -66,10 +66,6 @@
 /* Map library used to store objects by name */
 #include <map>
 
-/* Eigen Library included for ArcBall */
-#include <Eigen/Dense>
-using Eigen::Vector3f;
-
 using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -159,7 +155,7 @@ struct Triple
  * need to do is supply the parameters.
  */
 
-enum transformType { translation, rotation, scaling };
+enum transformType { translate, rotate, scale };
 
 struct Transform {
     /* Indicates type of transformation*/
@@ -190,19 +186,6 @@ struct Instance
 
     vector<Transform> transforms;
 };
-
-struct Quarternion
-{
-    float real;
-    Triple im;
-};
-
-Quarternion getIdentityQuarternion(void) {
-    Quarternion q;
-    q.real = 1;
-    q.im = (Triple) {0.0f, 0.0f, 0.0f};
-    return q;
-}
 
 /* The following struct is used to represent objects.
  *
@@ -286,13 +269,6 @@ map<string, Object> objects;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* Quarternions that control ArcBall Rotations
- */
-Quarternion last_rotation;
-Quarternion curr_rotation;
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
 /* The following are parameters for creating an interactive first-person camera
  * view of the scene. The variables will make more sense when explained in
  * context, so you should just look at the 'mousePressed', 'mouseMoved', and
@@ -352,10 +328,6 @@ void init(string filename)
 {
     /* Extracts all information from format file entered in command line */
     parseFormatFile(filename);
-
-    /* Rotation Quarternion Initializations */
-    last_rotation = getIdentityQuarternion();
-    curr_rotation = getIdentityQuarternion();
 
     /* The following line of code tells OpenGL to use "smooth shading" (aka
      * Gouraud shading) when rendering.
@@ -539,89 +511,6 @@ void reshape(int width, int height)
     glutPostRedisplay();
 }
 
-//////////////////////////////////////////////////////////////////////////
-
-/* Quarternion Support functions that make ArcBall Rotation Possible */
-
-float screenToNDC(int coord, bool x) {
-    if (x) {
-        return coord * 1.0 / glutGet(GLUT_SCREEN_WIDTH) * 2 - 1;
-    }
-    return coord * 1.0 / glutGet(GLUT_SCREEN_HEIGHT) * 2 - 1;
-}
-
-float getZNDC(float x, float y) {
-    float squared = x * x + y * y;
-    if (squared > 1) {
-        return 0.0f;
-    }
-    return sqrt(1 - squared);
-}
-
-void computeRotationQuarternion(Quarternion &q, int x, int y) {
-    float x_start = screenToNDC(mouse_x, true);
-    float y_start = screenToNDC(mouse_y, false);
-    float z_start = getZNDC(x_start, y_start);
-    float x_curr = screenToNDC(x, true);
-    float y_curr = screenToNDC(y, false);
-    float z_curr = getZNDC(x_curr, y_curr);
-    Vector3f start (x_start, y_start, z_start);
-    Vector3f curr (x_curr, y_curr, z_curr);
-    float thetaHalf = start.dot(curr) / (start.norm() * curr.norm());
-    thetaHalf = 0.5 * acos(min(1.0f, thetaHalf));
-    Vector3f u = start.cross(curr);
-    u.normalize();
-    q.real = cos(thetaHalf);
-    q.im.x = u[0] * sin(thetaHalf);
-    q.im.x = u[1] * sin(thetaHalf);
-    q.im.z = u[2] * sin(thetaHalf);
-}
-
-Quarternion multiplyQuarternion(Quarternion qa, Quarternion qb) 
-{
-    Quarternion product;
-    Vector3f va (qa.im.x, qa.im.y, qa.im.z);
-    Vector3f vb (qb.im.x, qb.im.y, qb.im.z);
-
-    product.real = qa.real * qb.real - va.dot(vb);
-    Vector3f v_product = (qa.real * vb) + (qb.real * va) + va.cross(vb);
-    product.im.x = v_product[0];
-    product.im.y = v_product[1];
-    product.im.z = v_product[2];
-    return product;
-}
-
-void applyArcBallRotation(void) 
-{
-    Quarternion q = multiplyQuarternion(curr_rotation, last_rotation);
-    GLfloat rot[16];
-
-    rot[0] = 1 - 2 * q.im.y * q.im.y - 2 * q.im.z * q.im.z;
-    rot[1] = 2 * (q.im.x * q.im.y - q.im.z * q.real);
-    rot[2] = 2 * (q.im.x * q.im.z + q.im.y * q.real);
-    rot[3] = 0;
-
-    rot[4] = 2 * (q.im.x * q.im.y + q.im.z * q.real);
-    rot[5] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.z * q.im.z;
-    rot[6] = 2 * (q.im.y * q.im.z - q.im.x * q.real);
-    rot[7] = 0;
-
-    rot[8] = 2 * (q.im.x * q.im.z - q.im.y * q.real);
-    rot[9] = 2 * (q.im.y * q.im.z + q.im.x * q.real);
-    rot[10] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.y * q.im.y;
-    rot[11] = 0;
-    
-    rot[12] = 0;
-    rot[13] = 0;
-    rot[14] = 0;
-    rot[15] = 1;
-
-    glMultMatrixf(rot);
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-
 /* 'display' function:
  * 
  * You will see down below in the 'main' function that whenever we create a
@@ -666,7 +555,6 @@ void display(void)
      * to the identity matrix:
      */
     glLoadIdentity();
-
     /* Now, if you recall, for a given object, we want to FIRST multiply the
      * coordinates of its points by the translations, rotations, and scalings
      * applied to the object and THEN multiply by the inverse camera rotations
@@ -738,14 +626,6 @@ void display(void)
     /* ^ And that should be it for the camera transformations.
      */
     
-    /* Uses the defined Quarternion support functions above to back multiply 
-     * the ModelView Matrix by the Quarternion Rotation Matrix so that the scene can 
-     * be contained within the rotated ArcBall sphere. 
-     * 
-     * ModelView = ModelView * Quarternion_Rotation
-     */
-    applyArcBallRotation();
-
     /* Our next step is to set up all the lights in their specified positions.
      * Our helper function, 'set_lights' does this for us. See the function
      * for more details.
@@ -977,18 +857,21 @@ void draw_objects()
                 for (int transformIdx = num_transforms - 1; transformIdx >= 0; --transformIdx)
                 {
                     switch(inst.transforms[transformIdx].type) {
-                        case translation :
+                        case translate :
+                            cerr << transformIdx << " translate" << endl;
                             glTranslatef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
-                        case rotation :
+                        case rotate :
+                            cerr << transformIdx << " rotate" << endl;
                             glRotatef(inst.transforms[transformIdx].data[3],
                                     inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
                             break;
-                        case scaling :
+                        case scale :
+                            cerr << transformIdx << " scale" << endl;
                             glScalef(inst.transforms[transformIdx].data[0],
                                     inst.transforms[transformIdx].data[1],
                                     inst.transforms[transformIdx].data[2]);
@@ -1012,10 +895,24 @@ void draw_objects()
                 * values. 'glMaterialf' is used to set the shininess property.
                 */
                 glMaterialfv(GL_FRONT, GL_AMBIENT, inst.ambient_reflect);
+                cerr << "Ambient: " << inst.ambient_reflect[0] << " " 
+                    << inst.ambient_reflect[1] << " " << inst.ambient_reflect[2] << endl;
+
+
                 glMaterialfv(GL_FRONT, GL_DIFFUSE, inst.diffuse_reflect);
+                cerr << "Diffuse: " << inst.diffuse_reflect[0] << " " 
+                    << inst.diffuse_reflect[1] << " " << inst.diffuse_reflect[2] << endl;
+
+
                 glMaterialfv(GL_FRONT, GL_SPECULAR, inst.specular_reflect);
+                cerr << "Specular: " << inst.specular_reflect[0] << " " 
+                    << inst.specular_reflect[1] << " " << inst.specular_reflect[2] << endl;
+                
+                
                 glMaterialf(GL_FRONT, GL_SHININESS, inst.shininess);
-            
+                cerr << "Shininess: " << inst.shininess << endl;
+
+
                 /* The next few lines of code are how we tell OpenGL to render
                 * geometry for us. First, let us look at the 'glVertexPointer'
                 * function.
@@ -1152,7 +1049,6 @@ void draw_objects()
  */
 void mouse_pressed(int button, int state, int x, int y)
 {
-    // MOUSE CLICKED
     /* If the left-mouse button was clicked down, then...
      */
     if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
@@ -1167,15 +1063,10 @@ void mouse_pressed(int button, int state, int x, int y)
          */
         is_pressed = true;
     }
-
-    // MOUSE RELEASED
     /* If the left-mouse button was released up, then...
      */
     else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
     {
-        last_rotation = multiplyQuarternion(curr_rotation, last_rotation);
-        curr_rotation = getIdentityQuarternion();
-
         /* Mouse is no longer being pressed, so set our indicator to false.
          */
         is_pressed = false;
@@ -1199,9 +1090,54 @@ void mouse_moved(int x, int y)
      */
     if(is_pressed)
     {
-        /* Saves the rotation that needs to be done for where the mouse 
-         * is now as the current rotation. */
-        computeRotationQuarternion(curr_rotation, x, y);
+        /* You see in the 'mouse_pressed' function that when the left-mouse button
+         * is first clicked down, we store the screen coordinates of where the
+         * mouse was pressed down in 'mouse_x' and 'mouse_y'. When we move the
+         * mouse, its screen coordinates change and are captured by the 'x' and
+         * 'y' parameters to the 'mouse_moved' function. We want to compute a change
+         * in our camera angle based on the distance that the mouse traveled.
+         *
+         * We have two distances traveled: a dx equal to 'x' - 'mouse_x' and a
+         * dy equal to 'y' - 'mouse_y'. We need to compute the desired changes in
+         * the horizontal (x) angle of the camera and the vertical (y) angle of
+         * the camera.
+         * 
+         * Let's start with the horizontal angle change. We first need to convert
+         * the dx traveled in screen coordinates to a dx traveled in camera space.
+         * The conversion is done using our 'mouse_scale_x' variable, which we
+         * set in our 'reshape' function. We then multiply by our 'x_view_step'
+         * variable, which is an arbitrary value that determines how "fast" we
+         * want the camera angle to change. Higher values for 'x_view_step' cause
+         * the camera to move more when we drag the mouse. We had set 'x_view_step'
+         * to 90 at the top of this file (where we declared all our variables).
+         * 
+         * We then add the horizontal change in camera angle to our 'x_view_angle'
+         * variable, which keeps track of the cumulative horizontal change in our
+         * camera angle. 'x_view_angle' is used in the camera rotations specified
+         * in the 'display' function.
+         */
+        x_view_angle += ((float) x - (float) mouse_x) * mouse_scale_x * x_view_step;
+        
+        /* We do basically the same process as above to compute the vertical change
+         * in camera angle. The only real difference is that we want to keep the
+         * camera angle changes realistic, and it is unrealistic for someone in
+         * real life to be able to change their vertical "camera angle" more than
+         * ~90 degrees (they would have to detach their head and spin it vertically
+         * or something...). So we decide to restrict the cumulative vertical angle
+         * change between -90 and 90 degrees.
+         */
+        float temp_y_view_angle = y_view_angle +
+                                  ((float) y - (float) mouse_y) * mouse_scale_y * y_view_step;
+        y_view_angle = (temp_y_view_angle > 90 || temp_y_view_angle < -90) ?
+                       y_view_angle : temp_y_view_angle;
+        
+        /* We update our 'mouse_x' and 'mouse_y' variables so that if the user moves
+         * the mouse again without releasing it, then the distance we compute on the
+         * next call to the 'mouse_moved' function will be from this current mouse
+         * position.
+         */
+        mouse_x = x;
+        mouse_y = y;
         
         /* Tell OpenGL that it needs to re-render our scene with the new camera
          * angles.
@@ -1217,15 +1153,6 @@ void mouse_moved(int x, int y)
 float deg2rad(float angle)
 {
     return angle * M_PI / 180.0;
-}
-
-/* 'rad2deg' function:
- * 
- * Converts given angle in radians to degrees.
- */
-float rad2deg(float angle)
-{
-    return angle * 180.0 / M_PI;
 }
 
 /* 'key_pressed' function:
@@ -1245,14 +1172,14 @@ void key_pressed(unsigned char key, int x, int y)
 {
     /* If 'q' is pressed, quit the program.
      */
-    if (key == 'q')
+    if(key == 'q')
     {
         exit(0);
     }
     /* If 't' is pressed, toggle our 'wireframe_mode' boolean to make OpenGL
      * render our cubes as surfaces of wireframes.
      */
-    else if (key == 't')
+    else if(key == 't')
     {
         wireframe_mode = !wireframe_mode;
         /* Tell OpenGL that it needs to re-render our scene with the cubes
@@ -1440,7 +1367,7 @@ void parseFormatFile(string filename)
             cam_orientation_axis[0] = stof(line[1]);
             cam_orientation_axis[1] = stof(line[2]);
             cam_orientation_axis[2] = stof(line[3]);
-            cam_orientation_angle = rad2deg(stof(line[4]));
+            cam_orientation_angle = stof(line[4]);
         } else if (line[0] == "near") {
             near_param = stof(line[1]);
         } else if (line[0] == "far") {
@@ -1561,12 +1488,12 @@ void parseFormatFile(string filename)
         transformation.data[1] = stof(line[2]);
         transformation.data[2] = stof(line[3]);
         if (line[0][0] == 't') {
-            transformation.type = translation;
+            transformation.type = translate;
         } else if (line[0][0] == 'r') {
-            transformation.type = rotation;
-            transformation.data[3] = rad2deg(stof(line[4])); 
+            transformation.type = rotate;
+            transformation.data[3] = stof(line[4]); 
         } else {
-            transformation.type = scaling;
+            transformation.type = scale;
         }
 
         /* Adds the transform to the object instance's list of tranforms */
