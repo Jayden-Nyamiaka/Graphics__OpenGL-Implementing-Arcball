@@ -69,7 +69,6 @@
 /* Eigen Library included for ArcBall */
 #include <Eigen/Dense>
 using Eigen::Vector3f;
-using Eigen::Matrix4f;
 
 using namespace std;
 
@@ -192,6 +191,18 @@ struct Instance
     vector<Transform> transforms;
 };
 
+struct Quarternion
+{
+    float real;
+    Triple im;
+};
+
+Quarternion getIdentityQuarternion(void) {
+    Quarternion q;
+    q.real = 1;
+    q.im = (Triple) {0.0f, 0.0f, 0.0f};
+    return q;
+}
 
 /* The following struct is used to represent objects.
  *
@@ -277,8 +288,8 @@ map<string, Object> objects;
 
 /* Quarternions that control ArcBall Rotations
  */
-Matrix4f last_rotation;
-Matrix4f curr_rotation;
+Quarternion last_rotation;
+Quarternion curr_rotation;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -343,8 +354,8 @@ void init(string filename)
     parseFormatFile(filename);
 
     /* Rotation Quarternion Initializations */
-    last_rotation = Matrix4f();
-    curr_rotation = Matrix4f();
+    last_rotation = getIdentityQuarternion();
+    curr_rotation = getIdentityQuarternion();
 
     /* The following line of code tells OpenGL to use "smooth shading" (aka
      * Gouraud shading) when rendering.
@@ -560,10 +571,10 @@ void computeRotationQuarternion(int x, int y) {
     thetaHalf = 0.5 * acos(min(1.0f, thetaHalf));
     Vector3f u = start.cross(curr);
     u.normalize();
-    q.real = cos(thetaHalf);
-    q.im.x = u[0] * sin(thetaHalf);
-    q.im.x = u[1] * sin(thetaHalf);
-    q.im.z = u[2] * sin(thetaHalf);
+    curr_rotation.real = cos(thetaHalf);
+    curr_rotation.im.x = u[0] * sin(thetaHalf);
+    curr_rotation.im.x = u[1] * sin(thetaHalf);
+    curr_rotation.im.z = u[2] * sin(thetaHalf);
 }
 
 Quarternion multiplyQuarternion(Quarternion qa, Quarternion qb) 
@@ -1162,8 +1173,8 @@ void mouse_pressed(int button, int state, int x, int y)
      */
     else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
     {
-        last_rotation = curr_rotation * last_rotation;
-        curr_rotation = Matrix4f();
+        last_rotation = multiplyQuarternion(curr_rotation, last_rotation);
+        curr_rotation = getIdentityQuarternion();
 
         /* Mouse is no longer being pressed, so set our indicator to false.
          */
