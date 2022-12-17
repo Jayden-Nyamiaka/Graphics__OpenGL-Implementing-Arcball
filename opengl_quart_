@@ -545,7 +545,7 @@ void reshape(int width, int height)
 
 float screenToNDC(int coord, bool x) {
     if (x) {
-        return ( (2.0f * coord) / glutGet(GLUT_INIT_WINDOW_WIDTH) - 0.5f) * (right_param - left_param) + left_param
+        return ( (2.0f * coord) / glutGet(GLUT_INIT_WINDOW_WIDTH) - 0.5f) * (right_param - left_param) + left_param;
     }
     return top_param - ( (2.0f * coord) / glutGet(GLUT_INIT_WINDOW_HEIGHT) - 0.5f) * (top_param - bottom_param);
 }
