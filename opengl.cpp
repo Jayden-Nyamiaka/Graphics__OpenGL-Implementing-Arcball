@@ -565,6 +565,9 @@ void computeRotationQuarternion(Quarternion &q, int x, int y) {
     float x_curr = screenToNDC(x, true);
     float y_curr = screenToNDC(y, false);
     float z_curr = getZNDC(x_curr, y_curr);
+    if (z_curr == 0 || z_start == 0) {
+        return;
+    }
     Vector3f start (x_start, y_start, z_start);
     Vector3f curr (x_curr, y_curr, z_curr);
     float thetaHalf = start.dot(curr) / (start.norm() * curr.norm());
