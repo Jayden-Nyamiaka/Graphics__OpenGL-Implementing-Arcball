@@ -1,20 +1,12 @@
 Compile and Execute Instructions:
-    1) Running "make all" compiles everything the code needs to run.
-    2) Run "make run" to generate 800 by 800 pixels ppm images.
-        - Appropriate ppm files are created within the data folder.
-        - The ppm images can also print to Standard Out via Wireframe::output(true).
-        - Rendering progress is printed via cerr (can be turned off via Wirefame::plot(false)).
-    3) The ppm3-to-png.py file from the last project is still there.
-        - More info can be found in the ppm3-to-png.py file.
-        - Run "make generate_pngs" to produce pngs from any generated ppms.
-        - Conversion sometimes may not work if the supplied image is too big.
-    4) Run "make clean" to delete any generated files.
 
-Some Other Things to Note:
-    I tried to speed up the rendering as much as possible with some other optimizations.
-    For Gouraud vs Phong Shading, Object has shading-type specific fields that are by default
-    empty and only touched within Wireframe. These fields are malloced arrays to generate faster
-    render speeds, which can be done since the size / dimensions are defined before use.
-    Please, let me know if there are more things that could be done to increase run speeds.
-    I really tried my best to optimize without losing readability, so I would be interested to
-    know what other strategies exist for code optimization in graphics.
+    1) The code has 3 executables that can be generated from the Makefile: 
+            - opengl (the Quarternion Implementation of ArcBall)
+            - opengl_matrix (the Matrix Implementation of ArcBall)
+            - demo (the original Demo that lets you move around with wasd)
+
+    2) Run "make opengl" to generate the executable that runs OpenGL with ArcBall.
+
+    3) Run ./opengl [scene_description_file.txt] [xres] [yres] to have that scene open in OpenGL.
+
+    4) Run "make clean" to delete any generated files.

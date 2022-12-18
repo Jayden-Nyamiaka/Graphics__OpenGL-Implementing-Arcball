@@ -574,7 +574,7 @@ void computeRotationQuarternion(int x, int y) {
     Vector3f u = start.cross(curr);
     u.normalize();
     double intermediateSinThetaHalf = sin(0.5 * theta);
-    curr_rotation.real = cos(0.5 * theta);
+    curr_rotation.real = -1 * cos(0.5 * theta);
     curr_rotation.im.x = u[0] * intermediateSinThetaHalf;
     curr_rotation.im.y = u[1] * intermediateSinThetaHalf;
     curr_rotation.im.z = u[2] * intermediateSinThetaHalf;
@@ -599,25 +599,25 @@ void applyArcBallRotation(void)
     Quarternion q = multiplyQuarternion(curr_rotation, last_rotation);
     GLfloat rot[16];
 
-    rot[0] = 1 - 2 * q.im.y * q.im.y - 2 * q.im.z * q.im.z;
-    rot[1] = 2 * (q.im.x * q.im.y - q.im.z * q.real);
-    rot[2] = 2 * (q.im.x * q.im.z + q.im.y * q.real);
-    rot[3] = 0;
+    rot[0] = 1.0f - 2.0f * q.im.y * q.im.y - 2.0f * q.im.z * q.im.z;
+    rot[1] = 2.0f * (q.im.x * q.im.y - q.im.z * q.real);
+    rot[2] = 2.0f * (q.im.x * q.im.z + q.im.y * q.real);
+    rot[3] = 0.0f;
 
-    rot[4] = 2 * (q.im.x * q.im.y + q.im.z * q.real);
-    rot[5] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.z * q.im.z;
-    rot[6] = 2 * (q.im.y * q.im.z - q.im.x * q.real);
-    rot[7] = 0;
+    rot[4] = 2.0f * (q.im.x * q.im.y + q.im.z * q.real);
+    rot[5] = 1.0f - 2.0f * q.im.x * q.im.x - 2.0f * q.im.z * q.im.z;
+    rot[6] = 2.0f * (q.im.y * q.im.z - q.im.x * q.real);
+    rot[7] = 0.0f;
 
-    rot[8] = 2 * (q.im.x * q.im.z - q.im.y * q.real);
-    rot[9] = 2 * (q.im.y * q.im.z + q.im.x * q.real);
-    rot[10] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.y * q.im.y;
-    rot[11] = 0;
+    rot[8] = 2.0f * (q.im.x * q.im.z - q.im.y * q.real);
+    rot[9] = 2.0f * (q.im.y * q.im.z + q.im.x * q.real);
+    rot[10] = 1.0f - 2.0f * q.im.x * q.im.x - 2.0f * q.im.y * q.im.y;
+    rot[11] = 0.0f;
     
-    rot[12] = 0;
-    rot[13] = 0;
-    rot[14] = 0;
-    rot[15] = 1;
+    rot[12] = 0.0f;
+    rot[13] = 0.0f;
+    rot[14] = 0.0f;
+    rot[15] = 1.0f;
 
     glMultMatrixf(rot);
 }

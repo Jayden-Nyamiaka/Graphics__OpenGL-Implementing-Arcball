@@ -24,7 +24,10 @@ opengl: opengl.cpp
 opengl_matrix: opengl_matrix.cpp
 	$(CC) $(FLAGS) opengl_matrix $(INCLUDE) $(LIBDIR) opengl_matrix.cpp $(LIBS)
 
+demo: opengl_demo.cpp
+	$(CC) $(FLAGS) demo $(INCLUDE) $(LIBDIR) opengl_demo.cpp $(LIBS)
+
 clean:
-	rm -f *.o $(EXENAME)
+	rm -f *.o opengl opengl_matrix demo
 
 .PHONY: all clean

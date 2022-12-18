@@ -1627,7 +1627,7 @@ int main(int argc, char* argv[])
     glutInitWindowPosition(0, 0);
     /* The following line tells OpenGL to name the program window "Test".
      */
-    glutCreateWindow("Test");
+    glutCreateWindow("OpenGL Demo");
     
     /* Call our 'init' function...
      */
