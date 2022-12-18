@@ -560,7 +560,7 @@ float getZNDC(float x, float y) {
     return sqrt(1.0f - squared);
 }
 
-void computeRotationMatrix(int x, int y) {
+void computeRotationQuarternion(int x, int y) {
     float x_start = screenToNDC(mouse_x, true);
     float y_start = screenToNDC(mouse_y, false);
     float z_start = getZNDC(x_start, y_start);

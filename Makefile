@@ -18,10 +18,10 @@ INCLUDE = -I/usr/X11R6/include -I/usr/include/GL -I/usr/include -I ./
 LIBDIR = -L/usr/X11R6/lib -L/usr/local/lib
 LIBS = -lGLEW -lGL -lGLU -lglut -lm
 
-all: $(SOURCES)
+opengl: opengl.cpp
 	$(CC) $(FLAGS) opengl $(INCLUDE) $(LIBDIR) opengl.cpp $(LIBS)
 
-all: $(SOURCES)
+opengl_matrix: opengl_matrix.cpp
 	$(CC) $(FLAGS) opengl_matrix $(INCLUDE) $(LIBDIR) opengl_matrix.cpp $(LIBS)
 
 clean:
