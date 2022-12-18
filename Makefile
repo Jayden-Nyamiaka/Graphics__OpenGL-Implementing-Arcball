@@ -16,13 +16,13 @@ FLAGS = -w -std=c++17 -g -o
 
 INCLUDE = -I/usr/X11R6/include -I/usr/include/GL -I/usr/include -I ./
 LIBDIR = -L/usr/X11R6/lib -L/usr/local/lib
-SOURCES = *.cpp
 LIBS = -lGLEW -lGL -lGLU -lglut -lm
 
-EXENAME = opengl
+all: $(SOURCES)
+	$(CC) $(FLAGS) opengl $(INCLUDE) $(LIBDIR) opengl.cpp $(LIBS)
 
 all: $(SOURCES)
-	$(CC) $(FLAGS) $(EXENAME) $(INCLUDE) $(LIBDIR) $(SOURCES) $(LIBS)
+	$(CC) $(FLAGS) opengl_matrix $(INCLUDE) $(LIBDIR) opengl_matrix.cpp $(LIBS)
 
 clean:
 	rm -f *.o $(EXENAME)

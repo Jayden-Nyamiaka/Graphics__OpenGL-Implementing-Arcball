@@ -192,6 +192,19 @@ struct Instance
     vector<Transform> transforms;
 };
 
+struct Quarternion
+{
+    float real;
+    Triple im;
+};
+
+Quarternion getIdentityQuarternion(void) {
+    Quarternion q;
+    q.real = 1;
+    q.im = (Triple) {0.0f, 0.0f, 0.0f};
+    return q;
+}
+
 
 /* The following struct is used to represent objects.
  *
@@ -277,8 +290,8 @@ map<string, Object> objects;
 
 /* Rotation Matrices that control ArcBall Rotations
  */
-Matrix4f last_rotation;
-Matrix4f curr_rotation;
+Quarternion last_rotation;
+Quarternion curr_rotation;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -342,9 +355,9 @@ void init(string filename)
     /* Extracts all information from format file entered in command line */
     parseFormatFile(filename);
 
-    /* Rotation Matrix Initializations */
-    last_rotation = Matrix4f();
-    curr_rotation = Matrix4f();
+    /* Rotation Quarternion Initializations */
+    last_rotation = getIdentityQuarternion();
+    curr_rotation = getIdentityQuarternion();
 
     /* The following line of code tells OpenGL to use "smooth shading" (aka
      * Gouraud shading) when rendering.
@@ -530,7 +543,7 @@ void reshape(int width, int height)
 
 //////////////////////////////////////////////////////////////////////////
 
-/* Rotation Matrix Support functions that make ArcBall Rotation Possible */
+/* Quarternion Support functions that make ArcBall Rotation Possible */
 
 float screenToNDC(int coord, bool x) {
     if (x) {
@@ -560,24 +573,53 @@ void computeRotationMatrix(int x, int y) {
     theta = acos(min(1.0f, theta));
     Vector3f u = start.cross(curr);
     u.normalize();
-    curr_rotation << (float) (u[0]*u[0] + (1.0f - u[0]*u[0]) * cos(theta)), 
-                     (float) (u[0]*u[1] * (1.0f - cos(theta)) - u[2] * sin(theta)), 
-                     (float) (u[0]*u[2] * (1.0f - cos(theta)) + u[1] * sin(theta)), 
-                     0.0f, 
-                     (float) (u[1]*u[0] * (1.0f - cos(theta)) + u[2] * sin(theta)), 
-                     (float) (u[1]*u[1] + (1.0f - u[1]*u[1]) * cos(theta)), 
-                     (float) (u[1]*u[2] * (1.0f - cos(theta)) - u[0] * sin(theta)), 
-                     0.0f, 
-                     (float) (u[2]*u[0] * (1.0f - cos(theta)) - u[1] * sin(theta)), 
-                     (float) (u[2]*u[1] * (1.0f - cos(theta)) + u[0] * sin(theta)), 
-                     (float) (u[2]*u[2] + (1.0f - u[2]*u[2]) * cos(theta)), 
-                     0.0f,
-                     0.0f, 0.0f, 0.0f, 1.0f;
+    double intermediateSinThetaHalf = sin(0.5 * theta);
+    curr_rotation.real = cos(0.5 * theta);
+    curr_rotation.im.x = u[0] * intermediateSinThetaHalf;
+    curr_rotation.im.y = u[1] * intermediateSinThetaHalf;
+    curr_rotation.im.z = u[2] * intermediateSinThetaHalf;
+}
+
+Quarternion multiplyQuarternion(Quarternion qa, Quarternion qb) 
+{
+    Quarternion product;
+    Vector3f va (qa.im.x, qa.im.y, qa.im.z);
+    Vector3f vb (qb.im.x, qb.im.y, qb.im.z);
+
+    product.real = qa.real * qb.real - va.dot(vb);
+    Vector3f v_product = (qa.real * vb) + (qb.real * va) + va.cross(vb);
+    product.im.x = v_product[0];
+    product.im.y = v_product[1];
+    product.im.z = v_product[2];
+    return product;
 }
 
 void applyArcBallRotation(void) 
 {
-    glMultMatrixf(curr_rotation.data());
+    Quarternion q = multiplyQuarternion(curr_rotation, last_rotation);
+    GLfloat rot[16];
+
+    rot[0] = 1 - 2 * q.im.y * q.im.y - 2 * q.im.z * q.im.z;
+    rot[1] = 2 * (q.im.x * q.im.y - q.im.z * q.real);
+    rot[2] = 2 * (q.im.x * q.im.z + q.im.y * q.real);
+    rot[3] = 0;
+
+    rot[4] = 2 * (q.im.x * q.im.y + q.im.z * q.real);
+    rot[5] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.z * q.im.z;
+    rot[6] = 2 * (q.im.y * q.im.z - q.im.x * q.real);
+    rot[7] = 0;
+
+    rot[8] = 2 * (q.im.x * q.im.z - q.im.y * q.real);
+    rot[9] = 2 * (q.im.y * q.im.z + q.im.x * q.real);
+    rot[10] = 1 - 2 * q.im.x * q.im.x - 2 * q.im.y * q.im.y;
+    rot[11] = 0;
+    
+    rot[12] = 0;
+    rot[13] = 0;
+    rot[14] = 0;
+    rot[15] = 1;
+
+    glMultMatrixf(rot);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -699,8 +741,11 @@ void display(void)
     /* ^ And that should be it for the camera transformations.
      */
     
-    /*
-     * ModelView = ModelView * Current_Rotation_Matrix
+    /* Uses the defined Quarternion support functions above to back multiply 
+     * the ModelView Matrix by the Quarternion Rotation Matrix so that the scene can 
+     * be contained within the rotated ArcBall sphere. 
+     * 
+     * ModelView = ModelView * Quarternion_Rotation
      */
     applyArcBallRotation();
 
@@ -1131,8 +1176,8 @@ void mouse_pressed(int button, int state, int x, int y)
      */
     else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
     {
-        last_rotation = curr_rotation * last_rotation;
-        curr_rotation = Matrix4f();
+        last_rotation = multiplyQuarternion(curr_rotation, last_rotation);
+        curr_rotation = getIdentityQuarternion();
 
         /* Mouse is no longer being pressed, so set our indicator to false.
          */
@@ -1159,7 +1204,7 @@ void mouse_moved(int x, int y)
     {
         /* Saves the rotation that needs to be done for where the mouse 
          * is now as the current rotation. */
-        computeRotationMatrix(x, y);
+        computeRotationQuarternion(x, y);
         
         /* Tell OpenGL that it needs to re-render our scene with the new camera
          * angles.
