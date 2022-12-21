@@ -1,16 +1,3 @@
-###############################################################################
-# CS/CNS 171 Fall 2015
-#
-# This is a template Makefile for OpenGL programs. Edit it however you find
-# convenient.
-# 
-# The current version of this file should compile OpenGL programs just fine on
-# Debian-based Linux operating systems.
-#
-# If you run Mac OS or other distributions of Linux, then you may have to
-# fool around with the 'INCLUDE' and 'LIBDIR' lines below before the Makefile
-# can compile the OpenGL parts successfully.
-###############################################################################
 CC = g++
 FLAGS = -w -std=c++17 -g -o
 

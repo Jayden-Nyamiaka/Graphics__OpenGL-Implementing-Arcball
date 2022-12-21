@@ -242,9 +242,6 @@ Quarternion getIdentityQuarternion(void) {
  */
 struct Object
 {
-    /* See the note above and the comments in the 'draw_objects' and
-     * 'create_cubes' functions for details about these buffer vectors.
-     */
     vector<Triple> vertex_buffer;
     vector<Triple> normal_buffer;
     
@@ -288,7 +285,7 @@ map<string, Object> objects;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* Rotation Matrices that control ArcBall Rotations
+/* Quarternions that control ArcBall Rotations
  */
 Quarternion last_rotation;
 Quarternion curr_rotation;
@@ -596,7 +593,7 @@ Quarternion multiplyQuarternion(Quarternion qa, Quarternion qb)
 
 void applyArcBallRotation(void) 
 {
-    Quarternion q = multiplyQuarternion(curr_rotation, last_rotation);
+    Quarternion q = multiplyQuarternion(last_rotation, curr_rotation);
     GLfloat rot[16];
 
     rot[0] = 1.0f - 2.0f * q.im.y * q.im.y - 2.0f * q.im.z * q.im.z;
@@ -1176,7 +1173,7 @@ void mouse_pressed(int button, int state, int x, int y)
      */
     else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
     {
-        last_rotation = multiplyQuarternion(curr_rotation, last_rotation);
+        last_rotation = multiplyQuarternion(last_rotation, curr_rotation);
         curr_rotation = getIdentityQuarternion();
 
         /* Mouse is no longer being pressed, so set our indicator to false.
