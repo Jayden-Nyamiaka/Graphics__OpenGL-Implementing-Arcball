@@ -5,7 +5,7 @@ Compile and Execute Instructions:
             - opengl_matrix (the Matrix Implementation of ArcBall)
             - demo (the original Demo that lets you move around with wasd)
 
-    2) Run "make opengl" to generate the executable that runs OpenGL with ArcBall.
+    2) Run "make all" to generate the executable that runs OpenGL with the Quarternion Implementation of ArcBall.
 
     3) Run ./opengl [scene_description_file.txt] [xres] [yres] to have that scene open in OpenGL.
 

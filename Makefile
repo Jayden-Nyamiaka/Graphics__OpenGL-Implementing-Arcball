@@ -17,4 +17,6 @@ demo: opengl_demo.cpp
 clean:
 	rm -f *.o opengl opengl_matrix demo
 
+all: clean opengl
+
 .PHONY: all clean
